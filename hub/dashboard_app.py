@@ -510,8 +510,8 @@ def _require_json(req: Request) -> dict[str, Any]:
 
 
 def _require_field(data: dict[str, Any], field_name: str) -> str:
-    value = data.get(field_name)
-    if not value or not isinstance(value, str):
+    value: object = data.get(field_name)
+    if not isinstance(value, str) or not value:
         abort(400, description=f"Field '{field_name}' is required.")
     return value
 
