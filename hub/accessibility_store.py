@@ -21,11 +21,11 @@ def load_profiles(path: Path | None = None) -> dict[str, Any]:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
         raise ValueError("Accessibility profiles file must contain a mapping.")
-    data.setdefault("global", {})
-    data.setdefault("presets", {})
-    data.setdefault("per_node_overrides", {})
+    global_settings = _require_mapping_section(data, "global")
+    _require_mapping_section(data, "presets")
+    _require_mapping_section(data, "per_node_overrides")
     try:
-        ensure_quiet_hours_valid(data["global"].get("quiet_hours"))
+        ensure_quiet_hours_valid(global_settings.get("quiet_hours"))
     except ValueError as exc:
         raise ValueError(f"Invalid quiet_hours configuration: {exc}") from exc
     return data
@@ -149,6 +149,19 @@ def _ensure_mapping(candidate: Any) -> dict[str, Any]:
     if isinstance(candidate, Mapping):
         return dict(candidate)
     return {}
+
+
+def _require_mapping_section(data: dict[str, Any], section_name: str) -> dict[str, Any]:
+    value = data.get(section_name)
+    if value is None:
+        section: dict[str, Any] = {}
+        data[section_name] = section
+        return section
+    if not isinstance(value, Mapping):
+        raise ValueError(f"Accessibility profiles '{section_name}' section must be a mapping.")
+    section = dict(value)
+    data[section_name] = section
+    return section
 
 
 def _clamp_int(value: Any, minimum: int, maximum: int) -> int:

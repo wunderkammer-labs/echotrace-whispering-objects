@@ -1,6 +1,6 @@
 # Content Pack Authoring Guide
 
-EchoTrace content packs package audio fragments, multilingual transcripts, and node role metadata so galleries can swap narrative sets without code changes.
+EchoTrace content packs group audio fragments, multilingual transcripts, and node role metadata so teams can swap narrative sets without code changes.
 
 ## Directory Layout
 
@@ -45,14 +45,14 @@ media:
 
 ### Nodes
 
-- `role` defines how the node behaves: `whisper` objects emit fragments when visitors approach, `mystery` unlocks only after enough fragments have triggered.
-- `default_language` is used when a requested fragment is unavailable in the visitor’s chosen language.
+- `role` defines node behavior: `whisper` triggers fragments on approach, and `mystery` unlocks after enough fragments are triggered.
+- `default_language` is used when a requested fragment is unavailable.
 
 ### Media Map
 
 - Each node lists available languages.
-- `audio` references a WAV or MP3 file relative to the pack directory.
-- `transcript` points to a static HTML transcript that the hub publishes as a QR-accessible page (`/transcripts/<pack>/<filename>.html`).
+- `audio` points to a WAV or MP3 file relative to the pack directory.
+- `transcript` points to a static HTML transcript published at `/transcripts/<pack>/<filename>.html`.
 
 Include English (`en`) plus any additional languages you support (default project includes `fr` and `es`).
 
@@ -70,4 +70,4 @@ Include English (`en`) plus any additional languages you support (default projec
 
 ## Testing With Mocks
 
-During development you can load a pack on your workstation; the Flask dashboard serves transcripts locally, and unit tests exercise the content manager to confirm all assets resolve correctly.
+During development, you can load a pack on a workstation. The Flask dashboard serves transcripts locally, and unit tests validate asset resolution.

@@ -98,10 +98,36 @@ def test_api_state_and_reset(
     assert "unlocked" in payload
     assert "triggered" in payload
 
-    reset_resp = testing_client.post("/api/reset-state", headers=_auth_header())
+    reset_resp = testing_client.post("/api/reset-state", json={}, headers=_auth_header())
     assert reset_resp.status_code == 200
     reset_payload = reset_resp.get_json()
     assert reset_payload["ok"] is True
+
+
+def test_state_change_rejects_cross_origin_post(
+    client: tuple[FlaskClient, FakeHubController, Path]
+) -> None:
+    """State-changing endpoints should reject cross-origin POSTs."""
+    testing_client, _controller, _path = client
+    response = testing_client.post(
+        "/api/reset-state",
+        json={},
+        headers={**_auth_header(), "Origin": "https://attacker.invalid"},
+    )
+    assert response.status_code == 403
+
+
+def test_state_change_allows_same_origin_post(
+    client: tuple[FlaskClient, FakeHubController, Path]
+) -> None:
+    """Same-origin POSTs should continue to work."""
+    testing_client, _controller, _path = client
+    response = testing_client.post(
+        "/api/reset-state",
+        json={},
+        headers={**_auth_header(), "Origin": "http://localhost"},
+    )
+    assert response.status_code == 200
 
 
 def test_apply_preset_triggers_push(

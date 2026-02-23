@@ -19,3 +19,11 @@ hub/logs/
 logs/
 audio/
 node.log
+
+# Local security audit artifacts (must not be committed)
+SECURITY_REPORT.md
+SECURITY_VERIFICATION.md
+SECURITY_CHANGES.md
+SECURITY_GUIDE.md
+docs/security.md
+README_CHANGE_PROPOSAL.md

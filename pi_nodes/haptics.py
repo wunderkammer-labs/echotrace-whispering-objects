@@ -1,4 +1,4 @@
-"""Haptic feedback helper for EchoTrace nodes (scaffold)."""
+"""Haptic feedback helper for EchoTrace nodes."""
 
 from __future__ import annotations
 

@@ -68,3 +68,13 @@ def test_load_profiles_validates_quiet_hours(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError):
         load_profiles(cfg)
+
+
+@pytest.mark.parametrize("section_name", ["global", "presets", "per_node_overrides"])
+def test_load_profiles_requires_mapping_sections(tmp_path: Path, section_name: str) -> None:
+    """Invalid section types should raise a controlled validation error."""
+    cfg = tmp_path / "profiles.yaml"
+    cfg.write_text(f"{section_name}:\n  - invalid\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=f"'{section_name}' section must be a mapping"):
+        load_profiles(cfg)

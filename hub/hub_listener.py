@@ -293,7 +293,7 @@ class HubListener:
 
 
 def run_forever() -> None:
-    """Convenience entry point mirroring previous scaffold behaviour."""
+    """Run the listener from a module entry point."""
     listener = HubListener()
     listener.run_forever()
 

@@ -15,6 +15,8 @@ from typing import Optional, TextIO
 LOGGER = logging.getLogger(__name__)
 
 CSV_COLUMNS = ["timestamp", "event", "node_id", "detail"]
+MAX_DETAIL_LENGTH = 2048
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 
 class CsvEventLogger:
@@ -38,9 +40,9 @@ class CsvEventLogger:
 
         row = {
             "timestamp": timestamp.isoformat(),
-            "event": event,
-            "node_id": node_id or "",
-            "detail": detail,
+            "event": _sanitize_csv_cell(event),
+            "node_id": _sanitize_csv_cell(node_id or ""),
+            "detail": _sanitize_csv_cell(detail, max_length=MAX_DETAIL_LENGTH),
         }
 
         try:
@@ -187,6 +189,16 @@ def summarize_events(logs_dir: Path) -> Optional[AnalyticsSummary]:
         mean_trigger_interval_seconds=mean_interval,
         recent_events=recent_events,
     )
+
+
+def _sanitize_csv_cell(value: str, *, max_length: int | None = None) -> str:
+    """Prevent CSV formula execution and bound untrusted detail size."""
+    text = value.replace("\x00", "").replace("\n", "\\n")
+    if max_length is not None and len(text) > max_length:
+        text = text[:max_length]
+    if text.startswith(_CSV_FORMULA_PREFIXES):
+        text = f"'{text}"
+    return text
 
 
 __all__ = ["AnalyticsSummary", "CSV_COLUMNS", "CsvEventLogger", "summarize_events"]

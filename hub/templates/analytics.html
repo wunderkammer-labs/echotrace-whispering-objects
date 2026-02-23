@@ -68,33 +68,42 @@ document.addEventListener('DOMContentLoaded', () => {
             statusEl.style.display = 'none';
             contentEl.style.display = 'block';
 
+            function appendRow(tableBody, values) {
+                const row = document.createElement('tr');
+                values.forEach((value) => {
+                    const cell = document.createElement('td');
+                    cell.textContent = String(value);
+                    row.appendChild(cell);
+                });
+                tableBody.appendChild(row);
+            }
+
             document.getElementById('total-triggers').textContent = data.total_triggers;
             document.getElementById('narrative-unlocks').textContent = data.narrative_unlocks;
             document.getElementById('completion-rate').textContent = (data.completion_rate * 100).toFixed(1) + '%';
             document.getElementById('mean-interval').textContent = data.mean_trigger_interval_seconds.toFixed(1) + ' s';
 
             const triggerTable = document.getElementById('trigger-table');
-            triggerTable.innerHTML = '';
+            triggerTable.textContent = '';
             Object.entries(data.by_node || {}).forEach(([node, count]) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td>${node || '—'}</td><td>${count}</td>`;
-                triggerTable.appendChild(row);
+                appendRow(triggerTable, [node || '—', count]);
             });
 
             const heartbeatTable = document.getElementById('heartbeat-table');
-            heartbeatTable.innerHTML = '';
+            heartbeatTable.textContent = '';
             Object.entries(data.heartbeat_by_node || {}).forEach(([node, count]) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td>${node || '—'}</td><td>${count}</td>`;
-                heartbeatTable.appendChild(row);
+                appendRow(heartbeatTable, [node || '—', count]);
             });
 
             const recentTable = document.getElementById('recent-events');
-            recentTable.innerHTML = '';
+            recentTable.textContent = '';
             (data.recent_events || []).reverse().forEach((event) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td>${event.timestamp}</td><td>${event.event}</td><td>${event.node_id}</td><td>${event.detail}</td>`;
-                recentTable.appendChild(row);
+                appendRow(recentTable, [
+                    event.timestamp || '',
+                    event.event || '',
+                    event.node_id || '',
+                    event.detail || '',
+                ]);
             });
         })
         .catch(() => {

@@ -9,6 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, TypeVar, cast
+from urllib.parse import urlparse
 from typing_extensions import Protocol
 
 from flask import (
@@ -209,18 +210,25 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
     def get_context() -> DashboardContext:
         return cast(DashboardContext, app.config["DASHBOARD_CONTEXT"])
 
-    route_return = (
-        WerkzeugResponse
-        | str
-        | tuple[WerkzeugResponse, int]
-        | tuple[WerkzeugResponse, int, dict[str, Any]]
-    )
-    F = TypeVar("F", bound=Callable[..., route_return])
+    F = TypeVar("F", bound=Callable[..., Any])
+
+    def get_expected_credentials() -> tuple[str, str] | None:
+        raw = app.config.get("ADMIN_CREDENTIALS")
+        if not isinstance(raw, tuple) or len(raw) != 2:
+            return None
+        username, password = raw
+        if not isinstance(username, str) or not isinstance(password, str):
+            return None
+        return (username, password)
 
     def require_auth(func: F) -> F:
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> route_return:
-            expected = cast(tuple[str, str] | None, app.config.get("ADMIN_CREDENTIALS"))
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not _is_same_origin_request(
+                request
+            ):
+                abort(403, description="Cross-origin requests are not allowed for state changes.")
+            expected = get_expected_credentials()
             if not expected:
                 return func(*args, **kwargs)
             auth = request.authorization
@@ -248,6 +256,15 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             "accessibility_global": global_view,
             "active_pack": ctx.current_pack,
         }
+
+    @app.after_request
+    def apply_security_headers(response: Response) -> Response:
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "same-origin")
+        if request.path.startswith("/api/") or request.path in {"/", "/nodes", "/analytics"}:
+            response.headers.setdefault("Cache-Control", "no-store")
+        return response
 
     # ------------------------------------------------------------------ Routes
 
@@ -346,6 +363,7 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
     @require_auth
     def api_reset_state() -> Response:
         ctx = get_context()
+        _require_json(request)
         snapshot = ctx.reset_state()
         return jsonify({"ok": True, "state": snapshot})
 
@@ -482,7 +500,12 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             abort(404)
         if not target_path.is_file():
             abort(404)
-        return cast(WerkzeugResponse, send_file(target_path, mimetype="text/html"))
+        response = cast(WerkzeugResponse, send_file(target_path, mimetype="text/html"))
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; sandbox"
+        )
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        return response
 
     @app.route("/logout")
     @require_auth
@@ -514,6 +537,20 @@ def _require_field(data: dict[str, Any], field_name: str) -> str:
     if not isinstance(value, str) or not value:
         abort(400, description=f"Field '{field_name}' is required.")
     return value
+
+
+def _is_same_origin_request(req: Request) -> bool:
+    origin = req.headers.get("Origin")
+    referer = req.headers.get("Referer")
+    if not origin and not referer:
+        return True
+
+    expected = urlparse(req.host_url)
+    candidate = origin or referer
+    parsed = urlparse(candidate or "")
+    if not parsed.scheme or not parsed.netloc:
+        return False
+    return parsed.scheme == expected.scheme and parsed.netloc == expected.netloc
 
 
 if __name__ == "__main__":

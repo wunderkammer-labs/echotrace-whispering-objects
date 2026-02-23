@@ -1,4 +1,4 @@
-"""LED feedback helper for EchoTrace nodes (scaffold)."""
+"""LED feedback helper for EchoTrace nodes."""
 
 from __future__ import annotations
 

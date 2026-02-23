@@ -1,16 +1,16 @@
 # Evaluation Metrics
 
-EchoTrace collects lightweight analytics so facilitators can tune visitor support without capturing personally identifiable information (PII). All metrics remain offline on the hub and can be exported manually as CSV for evaluation sessions.
+EchoTrace collects lightweight analytics so facilitators can tune visitor support without capturing personally identifiable information (PII). Metrics remain offline on the hub and can be exported as CSV when needed.
 
 ## Logged Events
 
 The hub records the following event types in `hub/logs/YYYY-MM-DD_events.csv`:
 
-- `heartbeat_received` – node health beacons (used to monitor uptime and spot disconnected devices).
-- `fragment_triggered` – proximity entrances that start whisper audio at a node.
-- `narrative_unlocked` – moments when enough fragments have been experienced to unlock the mystery object.
-- `config_push_ok` / `config_push_timeout` – administrative pushes sent from the dashboard and whether nodes acknowledged them.
-- `admin_action` – staff interventions such as manual narrative resets.
+- `heartbeat_received`: Node health beacons for uptime and disconnect detection.
+- `fragment_triggered`: Proximity events that start whisper audio.
+- `narrative_unlocked`: Moments when enough fragments were triggered to unlock the mystery object.
+- `config_push_ok` / `config_push_timeout`: Dashboard configuration pushes and acknowledgement status.
+- `admin_action`: Staff interventions such as manual narrative resets.
 
 Each line captures the ISO 8601 timestamp, the event name, an optional node identifier, and a detail payload (JSON string or short message).
 
@@ -18,11 +18,11 @@ Each line captures the ISO 8601 timestamp, the event name, an optional node iden
 
 The dashboard summarises the latest log with:
 
-- **Trigger counts by node** – how often each object attracted visitors during the logging window.
-- **Narrative completion rate** – the ratio of `narrative_unlocked` events to fragment triggers (capped at 100%).
-- **Average trigger interval** – an approximate dwell indicator derived from time between consecutive fragment triggers.
-- **Heartbeat tally** – reassurance that all nodes remain responsive.
-- **Recent events list** – the ten most recent log entries for rapid troubleshooting.
+- **Trigger counts by node**: How often each object triggered during the logging window.
+- **Narrative completion rate**: Ratio of `narrative_unlocked` events to fragment triggers, capped at 100%.
+- **Average trigger interval**: Approximate dwell indicator based on time between consecutive fragment triggers.
+- **Heartbeat tally**: Quick check that nodes remain responsive.
+- **Recent events list**: The ten most recent log entries.
 
 These summaries are recomputed on request; no historical aggregation is stored beyond the raw CSVs.
 
@@ -35,9 +35,9 @@ These summaries are recomputed on request; no historical aggregation is stored b
 
 ## Recommended Evaluation Practice
 
-1. **Baseline Observation** – Run the installation for a day and export the CSV to note visitation patterns.
-2. **Intervention Tracking** – When updating content packs, accessibility presets, or gallery layout, flag the action with an `admin_action` note and compare logs before/after the change.
-3. **Reflective Debrief** – Pair the quantitative summaries with qualitative gallery observations to interpret how visitors collaborated, lingered, or skipped stations.
-4. **Retention Policy** – Store exported CSVs securely, ideally anonymised with context labels (date, exhibition, facilitator) and delete them from the hub once transferred.
+1. **Baseline observation**: Run the installation for one day and export CSV logs to capture typical traffic.
+2. **Intervention tracking**: When changing content packs, accessibility presets, or layout, add an `admin_action` note and compare before/after logs.
+3. **Reflective debrief**: Pair summary metrics with floor observations to interpret collaboration and dwell patterns.
+4. **Retention policy**: Store exported CSV files securely, label context (date, exhibition, facilitator), and delete local hub copies after transfer.
 
-By combining these metrics with observational data, educators can tune EchoTrace to support curiosity-driven, collaborative meaning-making while upholding community privacy expectations.
+Use these metrics with observational notes to tune the experience while keeping privacy constraints intact.

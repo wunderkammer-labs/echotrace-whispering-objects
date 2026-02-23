@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml  # type: ignore[import]
 
 from hub.content_manager import ContentManager
@@ -79,3 +80,78 @@ def test_content_manager_language_fallback(tmp_path: Path) -> None:
 
     fragment_path = manager.get_fragment_for_node("object1", "fr")
     assert fragment_path == audio_dir / "object1_en.mp3"
+
+
+def test_content_manager_rejects_pack_path_traversal(tmp_path: Path) -> None:
+    """Pack selection should reject names that attempt to escape packs_root."""
+    packs_root = tmp_path / "packs"
+    outside_pack = tmp_path / "outside-pack"
+    (outside_pack / "transcripts").mkdir(parents=True)
+    (outside_pack / "audio").mkdir(parents=True)
+    (outside_pack / "audio" / "object1_en.mp3").write_text("dummy audio", encoding="utf-8")
+    (outside_pack / "transcripts" / "object1_en.html").write_text(
+        "<p>Transcript</p>",
+        encoding="utf-8",
+    )
+    (outside_pack / "pack.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "outside-pack",
+                "nodes": {
+                    "object1": {"role": "whisper", "default_language": "en"},
+                },
+                "media": {
+                    "object1": {
+                        "en": {
+                            "audio": "audio/object1_en.mp3",
+                            "transcript": "transcripts/object1_en.html",
+                        },
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ContentManager(packs_root=packs_root)
+    with pytest.raises(ValueError, match="Invalid content pack name"):
+        manager.load_pack("../outside-pack")
+
+
+def test_content_manager_ignores_media_paths_outside_pack(tmp_path: Path) -> None:
+    """Media entries that escape the pack root should be dropped."""
+    pack_dir = tmp_path / "sample-pack"
+    (pack_dir / "transcripts").mkdir(parents=True)
+    (pack_dir / "audio").mkdir(parents=True)
+
+    outside_audio = tmp_path / "outside.mp3"
+    outside_transcript = tmp_path / "outside.html"
+    outside_audio.write_text("dummy audio", encoding="utf-8")
+    outside_transcript.write_text("<p>Outside</p>", encoding="utf-8")
+
+    (pack_dir / "pack.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "sample-pack",
+                "nodes": {
+                    "object1": {"role": "whisper", "default_language": "en"},
+                },
+                "media": {
+                    "object1": {
+                        "en": {
+                            "audio": "../outside.mp3",
+                            "transcript": "../outside.html",
+                        },
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ContentManager(packs_root=tmp_path)
+    pack = manager.load_pack("sample-pack")
+
+    assert pack.media == {}
+    assert manager.get_fragment_for_node("object1", "en") is None
+    assert manager.get_transcript_url("object1", "en") is None

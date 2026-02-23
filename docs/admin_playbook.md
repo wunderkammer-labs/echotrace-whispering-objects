@@ -1,20 +1,20 @@
 # Admin Playbook
 
-This playbook outlines daily routines, accessibility management, troubleshooting, and maintenance tasks for EchoTrace – Whispering Objects.
+This playbook covers daily routines, accessibility management, troubleshooting, and maintenance tasks for EchoTrace.
 
 ## Daily Start-Up Checklist
 
-1. **Inspect hardware** – Ensure all Raspberry Pi nodes, sensors, speakers, and power supplies are connected and free of strain.
-2. **Power on** – Apply power to the hub (Raspberry Pi 4/5) and individual nodes (Pi Zero 2 W). LEDs on the nodes should glow faintly within 60 seconds.
-3. **Verify network** – Confirm the local Wi-Fi or wired network is active. The hub unit must run the Mosquitto MQTT broker.
-4. **Check dashboard health** – From a staff tablet or workstation on the same network, visit `http://<hub-ip>:8080/` and log in with the administrator credentials.
-5. **Review analytics badge** – Confirm all nodes report heartbeats (Overview → Nodes panel). Address missing nodes before opening to visitors.
+1. **Inspect hardware**: Ensure Raspberry Pi nodes, sensors, speakers, and power supplies are connected and strain-free.
+2. **Power on**: Start the hub (Raspberry Pi 4/5) and node devices (Pi Zero 2 W). LEDs should glow within 60 seconds.
+3. **Verify network**: Confirm local Wi-Fi or wired network availability. The hub must run Mosquitto.
+4. **Check dashboard health**: From a device on the same network, open `http://<hub-ip>:8080/` and log in.
+5. **Review analytics badge**: Confirm all nodes report heartbeats in the Overview/Nodes panel.
 
 ## Setting the Tone for the Day
 
-- **Select a content pack** – Navigate to **Content** → choose the desired pack. The hub pushes fragment metadata to all nodes.
-- **Choose accessibility mode** – In **Accessibility**, apply presets as needed (e.g., sensory-friendly mornings, hard-of-hearing tours). Verify the confirmation banner.
-- **Test a whisper** – Approach each node to ensure audio, LED, and optional haptic responses fire correctly.
+- **Select a content pack**: In **Content**, choose the pack to load.
+- **Choose accessibility mode**: In **Accessibility**, apply the preset needed for that session.
+- **Test a whisper**: Approach each node and confirm audio, LED, and optional haptic feedback.
 
 ## During Public Hours
 
@@ -34,15 +34,15 @@ This playbook outlines daily routines, accessibility management, troubleshooting
 
 ## Accessibility Suite
 
-- **Global toggles** – Captions, high contrast theme, sensory-friendly pacing (slower audio, lower volume), safety limiter, quiet hours (list of `HH:MM-HH:MM` ranges such as `"20:00-09:00"` that dim LEDs and lower volume automatically).
-- **Presets** – Hard of hearing (captions, limiter), Low vision (captions, high contrast), Sensory friendly (lower volume/pace, limiter), Mobility aware (extra mobility buffer before playback).
-- **Per-node overrides** – Adjust LED behaviour (`visual_pulse`, `proximity_glow`), haptic pacing (`repeat`, `pace`), mobility buffer, and per-node volume. Overrides persist in `hub/accessibility_profiles.yaml` and reapply on boot.
+- **Global toggles**: Captions, high contrast theme, sensory-friendly pacing, safety limiter, and quiet hours.
+- **Presets**: Hard of hearing, low vision, sensory friendly, and mobility aware profiles.
+- **Per-node overrides**: Adjust `visual_pulse`, `proximity_glow`, `repeat`, `pace`, mobility buffer, and per-node volume. Overrides persist in `hub/accessibility_profiles.yaml`.
 
 ## Maintenance Schedule
 
-- **Weekly** – Export analytics CSV for review; archive to secure storage. Inspect cabling and sensor mounts.
-- **Monthly** – Update content packs or rotate to new narratives. Review system packages (`sudo apt update && sudo apt upgrade`) on all Pis. Check available disk space on the hub.
-- **Quarterly** – Back up the repository (`/opt/echotrace`) and content packs to external storage. Test UPS or power conditioning equipment if present.
+- **Weekly**: Export analytics CSV, archive it, and inspect cabling and sensor mounts.
+- **Monthly**: Update content packs as needed, review system packages, and check free disk space.
+- **Quarterly**: Back up `/opt/echotrace` and content packs, then test UPS or power conditioning hardware.
 
 ## Backup and Restore
 
@@ -56,4 +56,4 @@ This playbook outlines daily routines, accessibility management, troubleshooting
 - Keep the hub on a private museum VLAN with no external internet exposure.
 - Do not ingest visitor identifiers; transcripts are static and audio playback is one-way.
 
-By following this playbook, facilitators can keep EchoTrace responsive, inclusive, and ready for iterative interpretation with museum audiences.
+Use this playbook as a baseline and adapt it to each exhibition schedule.

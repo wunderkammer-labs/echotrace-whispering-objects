@@ -58,7 +58,7 @@ Refer to `fabrication/wiring_fritzing.png` for a starter schematic. Adapt the la
 
 - Use the dashboard’s **Calibration** view to note baseline distances. Adjust `story_threshold_mm` or `hysteresis_mm` via overrides if nodes trigger prematurely.
 - For reflective environments, add matte shrouds around the VL53 sensor to minimise stray IR reflections.
-- Balance audio levels by monitoring crowd noise—set base volume to ~0.6 and rely on the safety limiter to prevent spikes.
+- Balance audio levels against crowd noise. Start with a base volume around 0.6 and use the safety limiter to prevent spikes.
 
 ## Maintenance
 
@@ -66,4 +66,4 @@ Refer to `fabrication/wiring_fritzing.png` for a starter schematic. Adapt the la
 - Inspect printed brackets and laser-cut panels for wear. Replace as needed; the STL/DXF files are in `fabrication/` for quick reprints.
 - Back up the content pack directory before editing live files.
 
-With reliable wiring, secure mounting, and the provided systemd services, EchoTrace nodes will boot directly into interactive mode, allowing staff to focus on facilitation instead of manual configuration.
+With reliable wiring, secure mounting, and the provided systemd services, nodes should boot into interactive mode without manual startup steps.

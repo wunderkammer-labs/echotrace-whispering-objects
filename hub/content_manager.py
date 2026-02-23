@@ -24,7 +24,7 @@ class MediaAsset:
 
 @dataclass
 class ContentPack:
-    """Rich representation of a content pack and its assets."""
+    """Loaded content pack metadata and resolved assets."""
 
     name: str
     root: Path
@@ -54,7 +54,7 @@ class ContentManager:
 
     def load_pack(self, name: str) -> ContentPack:
         """Load and validate the specified content pack."""
-        pack_path = self._packs_root / name
+        pack_path = self._resolve_pack_path(name)
         if not pack_path.exists():
             raise FileNotFoundError(f"Content pack '{name}' not found at {pack_path}")
         pack_yaml = pack_path / "pack.yaml"
@@ -77,7 +77,7 @@ class ContentManager:
 
         nodes = self._parse_nodes(raw.get("nodes", {}))
         media = self._parse_media(pack_path, raw.get("media", {}))
-        base_url = f"{self._transcripts_base}/{name}"
+        base_url = f"{self._transcripts_base}/{pack_path.name}"
 
         pack = ContentPack(name=name, root=pack_path, nodes=nodes, media=media, base_url=base_url)
         self._validate_pack_integrity(pack)
@@ -212,6 +212,7 @@ class ContentManager:
         raw_media: Mapping[str, Mapping[str, Mapping[str, str]]],
     ) -> dict[tuple[str, str], MediaAsset]:
         media: dict[tuple[str, str], MediaAsset] = {}
+        resolved_pack_root = pack_path.resolve()
         if not isinstance(raw_media, Mapping):
             LOGGER.warning("Media section missing or malformed in pack metadata.")
             return media
@@ -229,8 +230,15 @@ class ContentManager:
                 if not audio_rel or not transcript_rel:
                     LOGGER.warning("Media entry for %s (%s) missing paths.", node_id, lang)
                     continue
-                audio_path = (pack_path / audio_rel).resolve()
-                transcript_path = (pack_path / transcript_rel).resolve()
+                audio_path = self._resolve_media_path(resolved_pack_root, audio_rel)
+                transcript_path = self._resolve_media_path(resolved_pack_root, transcript_rel)
+                if audio_path is None or transcript_path is None:
+                    LOGGER.warning(
+                        "Media entry for %s (%s) contains path traversal; skipping.",
+                        node_id,
+                        lang,
+                    )
+                    continue
                 media[(node_id, lang)] = MediaAsset(
                     audio_path=audio_path,
                     transcript_path=transcript_path,
@@ -241,6 +249,31 @@ class ContentManager:
                 if not transcript_path.exists():
                     LOGGER.warning("Transcript file not found: %s", transcript_path)
         return media
+
+    def _resolve_pack_path(self, name: str) -> Path:
+        safe_name = name.strip()
+        if not safe_name or safe_name != name:
+            raise ValueError("Invalid content pack name.")
+        if Path(safe_name).name != safe_name or safe_name in {".", ".."}:
+            raise ValueError("Invalid content pack name.")
+
+        root = self._packs_root.resolve()
+        candidate = (root / safe_name).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("Invalid content pack name.") from exc
+        return candidate
+
+    def _resolve_media_path(self, pack_root: Path, raw_path: Any) -> Path | None:
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            return None
+        candidate = (pack_root / raw_path).resolve()
+        try:
+            candidate.relative_to(pack_root)
+        except ValueError:
+            return None
+        return candidate
 
 
 __all__ = ["ContentManager", "ContentPack", "MediaAsset"]
