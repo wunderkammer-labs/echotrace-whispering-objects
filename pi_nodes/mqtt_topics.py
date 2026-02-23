@@ -19,4 +19,3 @@ __all__ = [
     "node_config_topic",
     "trigger_topic",
 ]
-

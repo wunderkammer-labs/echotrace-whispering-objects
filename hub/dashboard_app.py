@@ -519,7 +519,6 @@ def _require_field(data: dict[str, Any], field_name: str) -> str:
 if __name__ == "__main__":
     # Development server entry point - not for production use.
     # Production deployments should use run_hub.py with Waitress.
-    import os
     os.environ.setdefault("ECHOTRACE_ADMIN_USER", "admin")
     os.environ.setdefault("ECHOTRACE_ADMIN_PASS", "changeme")  # noqa: S105
     development_app = create_app()

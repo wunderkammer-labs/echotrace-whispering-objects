@@ -25,4 +25,3 @@ __all__ = [
     "trigger_topic",
     "trigger_wildcard",
 ]
-
