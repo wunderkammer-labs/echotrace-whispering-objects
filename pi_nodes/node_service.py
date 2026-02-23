@@ -541,7 +541,7 @@ class NodeService:
     def _get_rssi(self) -> int:
         """Estimate Wi-Fi signal strength in dBm."""
         try:
-            with open("/proc/net/wireless", "r", encoding="utf-8") as handle:
+            with open("/proc/net/wireless", encoding="utf-8") as handle:
                 for line in handle:
                     if "wlan0" in line or "wlan1" in line:
                         parts = line.split()

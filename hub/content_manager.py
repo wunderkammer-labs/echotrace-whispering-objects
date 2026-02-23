@@ -94,7 +94,11 @@ class ContentManager:
                 missing.append(f"{node_id}/{lang}: transcript {asset.transcript_path.name}")
 
         if missing:
-            LOGGER.error("Content pack '%s' has missing assets:\n  - %s", pack.name, "\n  - ".join(missing))
+            LOGGER.error(
+                "Content pack '%s' has missing assets:\n  - %s",
+                pack.name,
+                "\n  - ".join(missing),
+            )
         else:
             LOGGER.info("Content pack '%s' integrity check passed.", pack.name)
 
