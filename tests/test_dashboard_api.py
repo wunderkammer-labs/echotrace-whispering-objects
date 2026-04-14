@@ -24,7 +24,7 @@ class FakeHubController:
     def __init__(self) -> None:
         self.calls: list[Tuple[str, Dict[str, Any]]] = []
         self.state: Dict[str, Any] = {"unlocked": False, "triggered": []}
-        self.health: Dict[str, float] = {}
+        self.health: Dict[str, Dict[str, Any]] = {}
         self.error: ConfigPushError | None = None
         self.version: int = 0
 
@@ -49,7 +49,7 @@ class FakeHubController:
     def reset_state(self) -> None:
         self.state = {"unlocked": False, "triggered": []}
 
-    def get_health_snapshot(self) -> Dict[str, float]:
+    def get_health_snapshot(self) -> Dict[str, Dict[str, Any]]:
         return dict(self.health)
 
 
