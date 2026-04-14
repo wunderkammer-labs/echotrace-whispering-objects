@@ -1,149 +1,129 @@
 {% extends 'base.html' %}
 {% block content %}
 <section>
-    <h2>Accessibility Presets</h2>
-    <form data-api="{{ url_for('api_apply_preset') }}" data-clear="true">
-        <label for="preset_name">Choose preset</label>
-        <select id="preset_name" name="preset_name" required>
-            <option value="">Select…</option>
-            {% for name, values in profiles.presets.items() %}
-                <option value="{{ name }}">{{ name }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit">Apply Preset</button>
-    </form>
+    <h2>Support Visitors</h2>
+    <p>Work through this page in order. Start with a preset. Only use the lower sections if the preset is not enough.</p>
+    <ol class="workflow-list">
+        <li>Choose a preset first.</li>
+        <li>Use gallery-wide settings only if the whole room needs an adjustment.</li>
+        <li>Use per-object adjustments only if one object needs a special change.</li>
+    </ol>
 </section>
 
 <section>
-    <h2>Global Toggles</h2>
+    <h2>1. Choose a Visitor Support Preset</h2>
+    <div class="card-grid">
+        <article class="node-card">
+            <h3>Accessibility Presets</h3>
+            <p>Best for hearing, vision, sensory, and mobility needs.</p>
+            <form data-api="{{ url_for('api_apply_preset') }}" data-clear="true" data-refresh="true">
+                <label for="preset_name">Choose preset</label>
+                <select id="preset_name" name="preset_name" required>
+                    <option value="">Select a preset</option>
+                    {% for name, values in profiles.presets.items() %}
+                        <option value="{{ name }}">{{ name.replace('_', ' ').title() }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Apply Accessibility Preset</button>
+            </form>
+        </article>
+        <article class="node-card">
+            <h3>Operating Presets</h3>
+            <p>Best for situations such as school groups or quieter gallery periods.</p>
+            <form data-api="{{ url_for('api_operation_preset') }}" data-refresh="true">
+                <label for="preset_key">Choose preset</label>
+                <select id="preset_key" name="preset_key" required>
+                    <option value="">Select a preset</option>
+                    {% for key, preset in operation_presets.items() %}
+                        <option value="{{ key }}">{{ preset.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Apply Operating Preset</button>
+            </form>
+        </article>
+    </div>
+</section>
+
+<section>
+    <h2>2. Adjust the Whole Gallery Only If Needed</h2>
     {% set global_settings = profiles.global or {} %}
     <form
         data-api="{{ url_for('api_apply_preset') }}"
         data-booleans="global.captions,global.high_contrast,global.sensory_friendly,global.safety_limiter"
-        data-json-fields="global.quiet_hours"
+        data-list-fields="global.quiet_hours"
         data-ints="global.mobility_buffer_ms"
         data-refresh="true"
     >
         <div class="form-grid">
+            <label><input type="checkbox" name="global.captions" value="true" {% if global_settings.get('captions') %}checked{% endif %}> Put transcript support first across the exhibit</label>
+            <label><input type="checkbox" name="global.high_contrast" value="true" {% if global_settings.get('high_contrast') %}checked{% endif %}> Use a high-contrast dashboard view for staff</label>
+            <label><input type="checkbox" name="global.sensory_friendly" value="true" {% if global_settings.get('sensory_friendly') %}checked{% endif %}> Slow and soften the exhibit for sensory-friendly periods</label>
+            <label><input type="checkbox" name="global.safety_limiter" value="true" {% if global_settings.get('safety_limiter', True) %}checked{% endif %}> Keep all objects within the safety volume limit</label>
             <label>
-                <input type="checkbox" name="global.captions" value="true" {% if global_settings.get('captions') %}checked{% endif %}>
-                Captions visibility
-            </label>
-            <label>
-                <input type="checkbox" name="global.high_contrast" value="true" {% if global_settings.get('high_contrast') %}checked{% endif %}>
-                High contrast theme
-            </label>
-            <label>
-                <input type="checkbox" name="global.sensory_friendly" value="true" {% if global_settings.get('sensory_friendly') %}checked{% endif %}>
-                Sensory-friendly mode
-            </label>
-            <label>
-                <input type="checkbox" name="global.safety_limiter" value="true" {% if global_settings.get('safety_limiter', True) %}checked{% endif %}>
-                Safety volume limiter
-            </label>
-            <label>
-                Mobility buffer (ms)
-                <input
-                    type="number"
-                    min="0"
-                    step="50"
-                    name="global.mobility_buffer_ms"
-                    value="{{ global_settings.get('mobility_buffer_ms', 800) }}"
-                >
+                Extra pause before replay (milliseconds)
+                <input type="number" min="0" step="50" name="global.mobility_buffer_ms" value="{{ global_settings.get('mobility_buffer_ms', 800) }}">
+                <span class="field-help">Increase this if visitors need more time before an object speaks again.</span>
             </label>
         </div>
-        <label for="quiet_hours">Quiet hours (JSON array, HH:MM-HH:MM)</label>
-        <textarea id="quiet_hours" name="global.quiet_hours" placeholder='["20:00-09:00"]'>{{ global_settings.get('quiet_hours', []) | tojson }}</textarea>
-        <button type="submit">Save Toggles</button>
+        <label for="quiet_hours">
+            Quiet hours
+            <textarea id="quiet_hours" name="global.quiet_hours" placeholder="08:00-10:00&#10;13:00-14:00">{{ (global_settings.get('quiet_hours', []) or []) | join('\n') }}</textarea>
+            <span class="field-help">Enter one time range per line using the format HH:MM-HH:MM.</span>
+        </label>
+        <button type="submit">Save Whole-Gallery Support Settings</button>
     </form>
 </section>
 
 <section>
-    <h2>Per-Node Overrides</h2>
+    <h2>3. Adjust One Object Only If Needed</h2>
+    <p>Use these controls only when one object needs special treatment that should not affect the rest of the exhibit.</p>
     {% if nodes %}
-        {% for node_id, meta in nodes.items() %}
-            {% set node_overrides = profiles.per_node_overrides.get(node_id, {}) %}
-            <div>
-                <h3>{{ node_id }} <small>({{ meta.role }})</small></h3>
-                <form
-                    data-api="{{ url_for('api_accessibility_override') }}"
-                    data-booleans="overrides.captions,overrides.visual_pulse,overrides.proximity_glow,overrides.safety_limiter"
-                    data-ints="overrides.mobility_buffer_ms,overrides.repeat"
-                    data-floats="overrides.pace,overrides.volume"
-                    data-json-fields=""
-                    data-clear="false"
-                >
-                    <input type="hidden" name="node_id" value="{{ node_id }}">
-                    <div class="form-grid">
-                        <label>
-                            <input type="checkbox" name="overrides.captions" value="true" {% if node_overrides.get('captions') %}checked{% endif %}>
-                            Captions for this node
-                        </label>
-                        <label>
-                            <input type="checkbox" name="overrides.visual_pulse" value="true" {% if node_overrides.get('visual_pulse') %}checked{% endif %}>
-                            Visual pulse on story playback
-                        </label>
-                        <label>
-                            <input type="checkbox" name="overrides.proximity_glow" value="true" {% if node_overrides.get('proximity_glow', True) %}checked{% endif %}>
-                            Proximity glow enabled
-                        </label>
-                        <label>
-                            <input type="checkbox" name="overrides.safety_limiter" value="true" {% if node_overrides.get('safety_limiter', True) %}checked{% endif %}>
-                            Safety limiter
-                        </label>
-                        <label>
-                            Mobility buffer (ms)
-                            <input
-                                type="number"
-                                min="0"
-                                step="50"
-                                name="overrides.mobility_buffer_ms"
-                                value="{{ node_overrides.get('mobility_buffer_ms', '') }}"
-                                placeholder="Same as global"
-                            >
-                        </label>
-                        <label>
-                            Repeat count (0-2)
-                            <input
-                                type="number"
-                                min="0"
-                                max="2"
-                                name="overrides.repeat"
-                                value="{{ node_overrides.get('repeat', '') }}"
-                                placeholder="0"
-                            >
-                        </label>
-                        <label>
-                            Playback pace (0.85-1.15)
-                            <input
-                                type="number"
-                                step="0.05"
-                                min="0.85"
-                                max="1.15"
-                                name="overrides.pace"
-                                value="{{ node_overrides.get('pace', '') }}"
-                                placeholder="1.0"
-                            >
-                        </label>
-                        <label>
-                            Volume override (0.0-1.0)
-                            <input
-                                type="number"
-                                step="0.05"
-                                min="0"
-                                max="1"
-                                name="overrides.volume"
-                                value="{{ node_overrides.get('volume', '') }}"
-                                placeholder="Auto"
-                            >
-                        </label>
-                    </div>
-                    <button type="submit">Save Overrides</button>
-                </form>
-            </div>
-        {% endfor %}
+        <div class="card-grid">
+            {% for node_id, meta in nodes.items() %}
+                {% set node_overrides = profiles.per_node_overrides.get(node_id, {}) %}
+                <article class="node-card">
+                    <h3>{{ display_names.get(node_id, meta.label) }}</h3>
+                    <p class="subtle">{{ meta.role }} object</p>
+                    <form
+                        data-api="{{ url_for('api_accessibility_override') }}"
+                        data-booleans="overrides.captions,overrides.visual_pulse,overrides.proximity_glow,overrides.safety_limiter"
+                        data-ints="overrides.mobility_buffer_ms,overrides.repeat"
+                        data-floats="overrides.pace,overrides.volume"
+                    >
+                        <input type="hidden" name="node_id" value="{{ node_id }}">
+                        <div class="form-grid">
+                            <label><input type="checkbox" name="overrides.captions" value="true" {% if node_overrides.get('captions') %}checked{% endif %}> Emphasize transcript support for this object</label>
+                            <label><input type="checkbox" name="overrides.visual_pulse" value="true" {% if node_overrides.get('visual_pulse') %}checked{% endif %}> Make light cues stronger during playback</label>
+                            <label><input type="checkbox" name="overrides.proximity_glow" value="true" {% if node_overrides.get('proximity_glow', True) %}checked{% endif %}> Keep the approach glow active</label>
+                            <label><input type="checkbox" name="overrides.safety_limiter" value="true" {% if node_overrides.get('safety_limiter', True) %}checked{% endif %}> Keep this object within the safety volume limit</label>
+                            <label>
+                                Extra pause before replay (milliseconds)
+                                <input type="number" min="0" step="50" name="overrides.mobility_buffer_ms" value="{{ node_overrides.get('mobility_buffer_ms', '') }}">
+                                <span class="field-help">Increase this if this object responds too quickly.</span>
+                            </label>
+                            <label>
+                                Repeat count
+                                <input type="number" min="0" max="2" name="overrides.repeat" value="{{ node_overrides.get('repeat', '') }}">
+                                <span class="field-help">Use 0, 1, or 2. Leave blank to keep the default.</span>
+                            </label>
+                            <label>
+                                Playback speed
+                                <input type="number" step="0.05" min="0.85" max="1.15" name="overrides.pace" value="{{ node_overrides.get('pace', '') }}">
+                                <span class="field-help">1.00 is normal. Lower values slow the audio slightly.</span>
+                            </label>
+                            <label>
+                                Volume override
+                                <input type="number" step="0.05" min="0" max="1" name="overrides.volume" value="{{ node_overrides.get('volume', '') }}">
+                                <span class="field-help">Use only if this object sounds consistently louder or quieter than the others.</span>
+                            </label>
+                        </div>
+                        <button type="submit">Save This Object’s Support Settings</button>
+                    </form>
+                </article>
+            {% endfor %}
+        </div>
     {% else %}
-        <p><em>No overrides configurable until a content pack is active.</em></p>
+        <p><em>No per-object support settings are available until a story pack is active.</em></p>
     {% endif %}
 </section>
 {% endblock %}

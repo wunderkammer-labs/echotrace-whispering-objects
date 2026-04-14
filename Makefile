@@ -14,7 +14,7 @@ typecheck:
 	mypy .
 
 test:
-	pytest
+	$(PYTHON) -m pytest
 
 verify: lint typecheck test
 

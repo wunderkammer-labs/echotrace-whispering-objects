@@ -8,18 +8,52 @@
     </head>
     <body class="{% if accessibility_global.get('high_contrast') %}high-contrast{% endif %}">
         <header>
-            <h1>EchoTrace Hub</h1>
+            <div class="header-block">
+                <p class="eyebrow">Museum Staff Dashboard</p>
+                <h1>EchoTrace Hub</h1>
+                <p class="subtle">Daily exhibit control, setup, and troubleshooting in one place.</p>
+            </div>
             <nav aria-label="Primary navigation">
-                <a href="{{ url_for('index') }}">Overview</a>
-                <a href="{{ url_for('nodes') }}">Nodes</a>
-                <a href="{{ url_for('accessibility_page') }}">Accessibility</a>
-                <a href="{{ url_for('calibration') }}">Calibration</a>
-                <a href="{{ url_for('content') }}">Content</a>
-                <a href="{{ url_for('analytics') }}">Analytics</a>
+                <div class="nav-group">
+                    {% for endpoint, label, href, group in nav_sections if group == 'primary' %}
+                        <a href="{{ href }}" {% if active_endpoint == endpoint %}aria-current="page"{% endif %}>{{ label }}</a>
+                    {% endfor %}
+                </div>
+                <div class="nav-group nav-group-secondary">
+                    {% for endpoint, label, href, group in nav_sections if group == 'secondary' %}
+                        <a href="{{ href }}" {% if active_endpoint == endpoint %}aria-current="page"{% endif %}>{{ label }}</a>
+                    {% endfor %}
+                </div>
             </nav>
+            <div class="header-actions">
+                <form class="inline" data-api="{{ url_for('api_undo_last_change') }}" data-refresh="true">
+                    <button type="submit" class="secondary">Undo Last Change</button>
+                </form>
+                <form
+                    class="inline"
+                    data-api="{{ url_for('api_staff_mode') }}"
+                    data-booleans="enabled"
+                    data-refresh="true"
+                >
+                    <label class="toggle">
+                        <input type="checkbox" name="enabled" value="true" {% if museum_staff_mode %}checked{% endif %}>
+                        Simple View
+                    </label>
+                    <button type="submit" class="secondary">Save</button>
+                </form>
+            </div>
+            <p class="header-note">
+                Undo restores the most recent dashboard setting change. Simple View hides advanced controls that are mainly intended for technicians.
+            </p>
         </header>
         <main>
             <div class="flash" data-flash role="status" aria-live="polite"></div>
+            {% if status_banner %}
+                <section class="status-banner {{ status_banner.tone }}">
+                    <h2>{{ status_banner.headline }}</h2>
+                    <p>{{ status_banner.detail }}</p>
+                </section>
+            {% endif %}
             {% block content %}{% endblock %}
         </main>
         <script src="{{ url_for('static', filename='js/app.js') }}"></script>

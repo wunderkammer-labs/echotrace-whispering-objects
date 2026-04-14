@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="print-only-header">
+    <h2>Print Visitor Cards</h2>
+    <p>These cards are formatted so staff can print, cut, and place them near each object or use them as the source sheet for local QR label production.</p>
+    <button type="button" onclick="window.print()">Print Visitor Cards</button>
+</section>
+
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>Print Visitor Cards{% if active_pack %}: {{ active_pack.name }}{% endif %}</h2>
+            <p>Each card includes the object name, default language, and the transcript link staff should place on labels, visitor guides, or local QR stickers.</p>
+        </div>
+        <a class="button-link secondary" href="{{ url_for('content') }}">Back to Change Story</a>
+    </div>
+    <div class="label-grid">
+        {% for label in labels %}
+            <article class="label-card">
+                <p class="eyebrow">{{ label.pack_name }}</p>
+                <h3>{{ label.display_name }}</h3>
+                <p><strong>Ready to place:</strong> {{ 'Yes' if label.ready_status == 'Ready to print' else 'No' }}</p>
+                <p><strong>Default language:</strong> {{ label.language }}</p>
+                <p class="label-callout">Use this transcript link on the printed visitor card or in your museum’s QR label process.</p>
+                <p class="small label-link">{{ label.transcript }}</p>
+                <p class="small">Suggested placement: near the object label, at a height that works for seated and standing visitors.</p>
+            </article>
+        {% else %}
+            <p><em>No visitor cards are available until a story pack is active.</em></p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -1,18 +1,23 @@
 name: sample-pack
 nodes:
   object1:
+    label: Entry Artifact
     role: whisper
     default_language: en
   object2:
+    label: Gallery Clock
     role: whisper
     default_language: en
   object3:
+    label: Archivist Desk
     role: whisper
     default_language: en
   object4:
+    label: Lantern Case
     role: whisper
     default_language: es
   mystery:
+    label: Mystery Object
     role: mystery
     default_language: en
 media:

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<section>
+    <h2>Fix an Issue</h2>
+    <p>Read the red items first. Each card explains what is wrong and gives the fastest next action for staff.</p>
+    {% if problems %}
+        <div class="card-grid">
+            {% for problem in problems %}
+                <article class="node-card {{ problem.severity }}">
+                    <h3>{{ problem.title }}</h3>
+                    <p>{{ problem.action }}</p>
+                    <div class="action-grid compact">
+                        {% if problem.get('node_id') and problem.get('node_action') %}
+                            <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Reconnect request sent.">
+                                <input type="hidden" name="node_id" value="{{ problem.node_id }}">
+                                <input type="hidden" name="action" value="{{ problem.node_action }}">
+                                <button type="submit">Try Reconnect</button>
+                            </form>
+                        {% endif %}
+                        {% if problem.get('link_href') and problem.get('link_label') %}
+                            <a class="button-link secondary" href="{{ problem.link_href }}">{{ problem.link_label }}</a>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No active problems are detected right now.</p>
+        <a class="button-link" href="{{ url_for('daily_start') }}">Open Exhibit</a>
+    {% endif %}
+</section>
+{% endblock %}

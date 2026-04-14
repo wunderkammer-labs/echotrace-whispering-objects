@@ -38,6 +38,7 @@
             const method = (form.dataset.method || form.method || 'post').toUpperCase();
             const booleanFields = extractCsv(form.dataset.booleans);
             const jsonFields = extractCsv(form.dataset.jsonFields);
+            const listFields = extractCsv(form.dataset.listFields);
             const intFields = extractCsv(form.dataset.ints);
             const floatFields = extractCsv(form.dataset.floats);
             const wrapKey = form.dataset.wrap || null;
@@ -56,8 +57,17 @@
                         setNestedValue(payload, key, parsed);
                     } catch (_error) {
                         setFlash(`Invalid JSON provided for ${key}.`, 'error');
-                        setNestedValue(payload, key, {});
+                        throw new Error(`Invalid JSON: ${key}`);
                     }
+                    return;
+                }
+
+                if (listFields.includes(key)) {
+                    const parsedList = String(value)
+                        .split(/\n|,/)
+                        .map((item) => item.trim())
+                        .filter(Boolean);
+                    setNestedValue(payload, key, parsedList);
                     return;
                 }
 
@@ -109,25 +119,26 @@
                 });
 
                 if (!response.ok) {
-                    const text = await response.text();
-                    setFlash(text || 'Request failed.', 'error');
+                    const errorMessage = await extractErrorMessage(response);
+                    setFlash(errorMessage || 'Request failed.', 'error');
                     return;
                 }
 
                 const contentType = response.headers.get('content-type') || '';
                 if (contentType.includes('application/json')) {
                     const data = await response.json();
-                    setFlash('Request completed.', 'success');
+                    const successMessage =
+                        form.dataset.successMessage ||
+                        data.message ||
+                        `${deriveActionLabel(form)} completed.`;
+                    setFlash(successMessage, 'success');
                     if (form.dataset.refresh === 'true') {
                         window.location.reload();
                     } else if (form.dataset.clear === 'true') {
                         form.reset();
                     }
-                    if (form.dataset.messageField && data[form.dataset.messageField]) {
-                        setFlash(String(data[form.dataset.messageField]), 'success');
-                    }
                 } else {
-                    setFlash('Request completed.', 'success');
+                    setFlash(form.dataset.successMessage || `${deriveActionLabel(form)} completed.`, 'success');
                 }
             } catch (error) {
                 setFlash('Network error while contacting the hub.', 'error');
@@ -182,5 +193,33 @@
                 .map((item) => item.trim())
                 .filter(Boolean);
         }
+
+        async function extractErrorMessage(response) {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                try {
+                    const data = await response.json();
+                    return data.message || data.description || 'Request failed.';
+                } catch (_error) {
+                    return 'Request failed.';
+                }
+            }
+
+            const text = (await response.text()).trim();
+            const bodyMatch = text.match(/<p>(.*?)<\/p>/i);
+            if (bodyMatch) {
+                return bodyMatch[1];
+            }
+            return text || 'Request failed.';
+        }
+
+        function deriveActionLabel(form) {
+            const submitButton = form.querySelector('button[type="submit"], button:not([type])');
+            if (submitButton && submitButton.textContent) {
+                return submitButton.textContent.trim();
+            }
+            return 'Request';
+        }
+
     });
 })();

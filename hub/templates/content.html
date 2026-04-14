@@ -1,62 +1,101 @@
 {% extends 'base.html' %}
 {% block content %}
 <section>
-    <h2>Content Packs</h2>
+    <h2>Change Story</h2>
+    <p>Use this page when staff need to switch the active story pack. The main question here is simple: is the story safe to make live for visitors?</p>
     <form data-api="{{ url_for('api_select_pack') }}" data-refresh="true">
-        <label for="pack_name">Active pack</label>
+        <label for="pack_name">Choose story pack</label>
         <select id="pack_name" name="pack_name" required>
             {% for name in pack_names %}
-                <option value="{{ name }}" {% if active_pack and active_pack.name == name %}selected{% endif %}>
-                    {{ name }}
-                </option>
+                <option value="{{ name }}" {% if active_pack and active_pack.name == name %}selected{% endif %}>{{ name }}</option>
             {% endfor %}
         </select>
-        <button type="submit">Load Pack</button>
+        <button type="submit">Activate Story Pack</button>
     </form>
 </section>
 
 <section>
-    <h2>Transcripts &amp; Audio</h2>
+    <h2>Which Story Packs Are Ready</h2>
+    <div class="card-grid">
+        {% for pack_name, report in validation_map.items() %}
+            <article class="node-card">
+                <h3>{{ pack_name }}</h3>
+                <p><strong>Visitor-ready:</strong> {{ 'Yes' if report.valid else 'Not yet' }}</p>
+                <p><strong>Missing files:</strong> {{ report.missing_assets | length }}</p>
+                <p><strong>Objects missing media:</strong> {{ report.missing_nodes | length }}</p>
+                <p class="small">
+                    {% if report.valid %}
+                        Staff can activate this pack.
+                    {% else %}
+                        This pack needs technician or content-author attention before it goes live.
+                    {% endif %}
+                </p>
+            </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section>
+    <h2>Current Story Review</h2>
     {% if active_pack %}
+        <div class="hero-grid">
+            <article class="hero-card">
+                <h3>{{ active_pack.name }}</h3>
+                {% set report = validation_map.get(active_pack.name) %}
+                <p><strong>Ready for visitors:</strong> {{ 'Yes' if report and report.valid else 'No' }}</p>
+                <p><strong>Objects in this story:</strong> {{ active_pack.nodes | length }}</p>
+                <p><strong>Languages available:</strong> {{ pack_languages | join(', ') if pack_languages else 'None listed' }}</p>
+            </article>
+            <article class="hero-card">
+                <h3>What staff should verify</h3>
+                <ul class="checklist">
+                    <li>Do the object names match the gallery labels?</li>
+                    <li>Is the default language correct for this exhibition?</li>
+                    <li>Do printed visitor cards need to be replaced?</li>
+                </ul>
+            </article>
+        </div>
         <table>
             <thead>
                 <tr>
-                    <th>Node</th>
-                    <th>Role</th>
-                    <th>Language</th>
-                    <th>Audio</th>
-                    <th>Transcript URL</th>
+                    <th>Object</th>
+                    <th>Default language</th>
+                    <th>Visitor card ready</th>
+                    <th>Languages available</th>
                 </tr>
             </thead>
             <tbody>
                 {% for node_id, meta in active_pack.nodes.items() %}
-                    {% for lang in ['en', 'fr', 'es'] %}
-                        {% set asset = active_pack.media.get((node_id, lang)) %}
-                        <tr>
-                            <td>{{ node_id }}</td>
-                            <td>{{ meta.role }}</td>
-                            <td>{{ lang }}</td>
-                            <td>
-                                {% if asset %}
-                                    {{ asset.audio_path.name }}
-                                {% else %}
-                                    <em>Not provided</em>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if asset %}
-                                    {{ active_pack.base_url }}/{{ asset.transcript_filename }}
-                                {% else %}
-                                    <em>Unavailable</em>
-                                {% endif %}
-                            </td>
-                        </tr>
+                    {% set languages = [] %}
+                    {% for lang in pack_languages %}
+                        {% if active_pack.media.get((node_id, lang)) %}
+                            {% set _ = languages.append(lang) %}
+                        {% endif %}
                     {% endfor %}
+                    <tr>
+                        <td>{{ meta.label }}</td>
+                        <td>{{ meta.default_language }}</td>
+                        <td>{% if active_pack.media.get((node_id, meta.default_language)) %}Yes{% else %}No{% endif %}</td>
+                        <td>{{ languages | join(', ') if languages else 'No files found' }}</td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
+        <details class="advanced-panel">
+            <summary>Technician details</summary>
+            {% if report and report.missing_assets %}
+                <h3>Missing Files</h3>
+                <ul class="checklist">
+                    {% for item in report.missing_assets %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No missing files are currently reported for this story pack.</p>
+            {% endif %}
+        </details>
     {% else %}
-        <p><em>No pack selected.</em></p>
+        <p><em>No story pack is active.</em></p>
     {% endif %}
 </section>
 {% endblock %}

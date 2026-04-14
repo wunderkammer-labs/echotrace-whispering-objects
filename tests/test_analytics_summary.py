@@ -62,3 +62,16 @@ def test_summarize_events(tmp_path: Path) -> None:
     assert 0.4 <= summary.completion_rate <= 1.0
     assert summary.mean_trigger_interval_seconds == 30
     assert summary.recent_events, "Expected recent events to be populated."
+
+
+def test_summarize_events_aggregates_multiple_days(tmp_path: Path) -> None:
+    """Summaries should include all rotated daily logs, not only the latest file."""
+    _write_log(tmp_path / "2025-01-01_events.csv")
+    _write_log(tmp_path / "2025-01-02_events.csv")
+
+    summary = summarize_events(tmp_path)
+    assert summary is not None
+    assert summary.by_node["object1"] == 4
+    assert summary.heartbeat_by_node["object1"] == 2
+    assert summary.narrative_unlocks == 2
+    assert summary.total_triggers == 4

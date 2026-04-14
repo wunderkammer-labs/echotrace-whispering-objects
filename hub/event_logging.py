@@ -7,6 +7,7 @@ import datetime as dt
 
 import fcntl
 import logging
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, TextIO
@@ -120,48 +121,52 @@ class AnalyticsSummary:
 
 
 def summarize_events(logs_dir: Path) -> Optional[AnalyticsSummary]:
-    """Parse the latest CSV log and return derived metrics."""
-    logger = CsvEventLogger(logs_dir)
-    latest = logger.latest_csv()
-    logger.close()
-    if latest is None or not latest.exists():
+    """Parse available CSV logs and return derived metrics."""
+    csv_logs = sorted(logs_dir.glob("*_events.csv"))
+    if not csv_logs:
         return None
 
     by_node: dict[str, int] = {}
     heartbeat_by_node: dict[str, int] = {}
     narrative_unlocks = 0
     trigger_timestamps: list[dt.datetime] = []
-    recent_events: list[dict[str, str]] = []
+    recent_events: deque[dict[str, str]] = deque(maxlen=10)
+    saw_rows = False
 
-    try:
-        with latest.open("r", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle)
-            rows = list(reader)
-    except OSError as exc:
-        LOGGER.warning("Unable to read analytics log %s: %s", latest, exc)
+    for csv_log in csv_logs:
+        try:
+            with csv_log.open("r", encoding="utf-8") as handle:
+                reader = csv.DictReader(handle)
+                rows = list(reader)
+        except OSError as exc:
+            LOGGER.warning("Unable to read analytics log %s: %s", csv_log, exc)
+            continue
+
+        for row in rows:
+            saw_rows = True
+            event = row.get("event", "")
+            node_id = row.get("node_id", "") or ""
+            detail = row.get("detail", "")
+            timestamp_raw = row.get("timestamp", "")
+
+            recent_events.append(
+                {"timestamp": timestamp_raw, "event": event, "node_id": node_id, "detail": detail}
+            )
+
+            if event == "fragment_triggered":
+                by_node[node_id] = by_node.get(node_id, 0) + 1
+                if timestamp_raw:
+                    try:
+                        trigger_timestamps.append(dt.datetime.fromisoformat(timestamp_raw))
+                    except ValueError:
+                        pass
+            elif event == "heartbeat_received":
+                heartbeat_by_node[node_id] = heartbeat_by_node.get(node_id, 0) + 1
+            elif event == "narrative_unlocked":
+                narrative_unlocks += 1
+
+    if not saw_rows:
         return None
-
-    for row in rows:
-        event = row.get("event", "")
-        node_id = row.get("node_id", "") or ""
-        detail = row.get("detail", "")
-        timestamp_raw = row.get("timestamp", "")
-
-        recent_events.append(
-            {"timestamp": timestamp_raw, "event": event, "node_id": node_id, "detail": detail}
-        )
-
-        if event == "fragment_triggered":
-            by_node[node_id] = by_node.get(node_id, 0) + 1
-            if timestamp_raw:
-                try:
-                    trigger_timestamps.append(dt.datetime.fromisoformat(timestamp_raw))
-                except ValueError:
-                    pass
-        elif event == "heartbeat_received":
-            heartbeat_by_node[node_id] = heartbeat_by_node.get(node_id, 0) + 1
-        elif event == "narrative_unlocked":
-            narrative_unlocks += 1
 
     total_triggers = sum(by_node.values())
     completion_rate = 0.0
@@ -178,8 +183,6 @@ def summarize_events(logs_dir: Path) -> Optional[AnalyticsSummary]:
         if deltas:
             mean_interval = sum(deltas) / len(deltas)
 
-    recent_events = recent_events[-10:]
-
     return AnalyticsSummary(
         by_node=by_node,
         heartbeat_by_node=heartbeat_by_node,
@@ -187,7 +190,7 @@ def summarize_events(logs_dir: Path) -> Optional[AnalyticsSummary]:
         total_triggers=total_triggers,
         completion_rate=completion_rate,
         mean_trigger_interval_seconds=mean_interval,
-        recent_events=recent_events,
+        recent_events=list(recent_events),
     )
 
 

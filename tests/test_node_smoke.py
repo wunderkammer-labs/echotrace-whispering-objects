@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, cast
 
 import pytest
+import yaml  # type: ignore[import]
 
 from pi_nodes.mqtt_topics import (
     health_topic,
@@ -15,7 +17,8 @@ from pi_nodes.mqtt_topics import (
     node_config_topic,
     trigger_topic,
 )
-from pi_nodes.node_service import HEARTBEAT_INTERVAL_SECONDS, NodeService
+import pi_nodes.node_service as node_service_module
+from pi_nodes.node_service import HEARTBEAT_INTERVAL_SECONDS, NodeService, _build_mqtt_client
 from pi_nodes.proximity_sensor import MockProximitySensor
 
 
@@ -153,7 +156,13 @@ def test_node_service_emits_heartbeat(tmp_path: Path) -> None:
     service._last_heartbeat_ts = -HEARTBEAT_INTERVAL_SECONDS  # force immediate heartbeat
     service.run_once(now=0.0)
 
-    assert any(topic == health_topic("test-node") for topic, _ in mqtt_client.published)
+    heartbeat = next(
+        body
+        for topic, body in mqtt_client.published
+        if topic == health_topic("test-node")
+    )
+    assert heartbeat["config_version"] == 0
+    assert "fragment_file" in heartbeat
 
 
 def test_whisper_node_triggers_story(tmp_path: Path) -> None:
@@ -201,11 +210,26 @@ def test_config_update_applies_and_acknowledges(tmp_path: Path) -> None:
         mqtt_client=mqtt_client,
     )
 
-    payload = json.dumps({"audio": {"volume": 0.4}})
+    payload = json.dumps(
+        {
+            "audio": {"volume": 0.4},
+            "config_version": 7,
+            "_request_id": "req-123",
+        }
+    )
     service.handle_mqtt_message(node_config_topic("test-node"), payload)
 
     assert pytest.approx(service.config.audio.volume, rel=1e-3) == 0.4
-    assert any(topic == node_ack_topic("test-node") for topic, _ in mqtt_client.published)
+    assert service.config.config_version == 7
+    ack = next(
+        body
+        for topic, body in mqtt_client.published
+        if topic == node_ack_topic("test-node")
+    )
+    assert ack["request_id"] == "req-123"
+    assert ack["config_version"] == 7
+    persisted = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert persisted["config_version"] == 7
 
 
 def test_mystery_node_plays_on_unlock(tmp_path: Path) -> None:
@@ -237,3 +261,184 @@ def test_mystery_node_plays_on_unlock(tmp_path: Path) -> None:
 
     service.handle_mqtt_message(hub_state_topic(), json.dumps({"unlocked": True}))
     assert audio.play_calls, "Mystery node should play audio when unlocked."
+    assert not any(topic == trigger_topic("test-node") for topic, _ in mqtt_client.published)
+
+
+def test_stale_config_version_is_rejected(tmp_path: Path) -> None:
+    """Out-of-order config versions should be ignored to prevent rollback."""
+    audio_file = tmp_path / "clip.mp3"
+    audio_file.write_text("dummy", encoding="utf-8")
+    config_path = _write_config(tmp_path)
+    mqtt_client = FakeMQTT()
+
+    service = NodeService(
+        config_path=config_path,
+        sensor=MockProximitySensor([900]),
+        audio_player=cast(Any, DummyAudio()),
+        led_feedback=cast(Any, DummyLED()),
+        haptics=cast(Any, DummyHaptics()),
+        mqtt_client=mqtt_client,
+    )
+
+    service.handle_mqtt_message(
+        node_config_topic("test-node"),
+        json.dumps(
+            {
+                "audio": {"volume": 0.2},
+                "config_version": 8,
+                "_request_id": "req-new",
+            }
+        ),
+    )
+    service.handle_mqtt_message(
+        node_config_topic("test-node"),
+        json.dumps(
+            {
+                "audio": {"volume": 0.9},
+                "config_version": 2,
+                "_request_id": "req-old",
+            }
+        ),
+    )
+
+    assert service.config.config_version == 8
+    assert service.config.audio.volume == pytest.approx(0.2, rel=1e-3)
+    ack = next(
+        body
+        for topic, body in reversed(mqtt_client.published)
+        if topic == node_ack_topic("test-node")
+    )
+    assert ack["status"] == "stale"
+    assert ack["request_id"] == "req-old"
+
+
+def test_config_ack_reports_error_when_persist_fails(tmp_path: Path) -> None:
+    """Persistence failures should return explicit error ACKs instead of crashing silently."""
+    audio_file = tmp_path / "clip.mp3"
+    audio_file.write_text("dummy", encoding="utf-8")
+    config_path = _write_config(tmp_path)
+    mqtt_client = FakeMQTT()
+
+    service = NodeService(
+        config_path=config_path,
+        sensor=MockProximitySensor([900]),
+        audio_player=cast(Any, DummyAudio()),
+        led_feedback=cast(Any, DummyLED()),
+        haptics=cast(Any, DummyHaptics()),
+        mqtt_client=mqtt_client,
+    )
+
+    def _raise_persist_error() -> None:
+        raise OSError("disk full")
+
+    service._persist_runtime_config = _raise_persist_error  # type: ignore[assignment]
+    service.handle_mqtt_message(
+        node_config_topic("test-node"),
+        json.dumps({"audio": {"volume": 0.3}, "config_version": 9, "_request_id": "req-fail"}),
+    )
+
+    ack = next(
+        body
+        for topic, body in mqtt_client.published
+        if topic == node_ack_topic("test-node")
+    )
+    assert ack["status"] == "error"
+    assert ack["error"] == "persist_failed"
+    assert ack["request_id"] == "req-fail"
+
+
+def test_persist_runtime_config_preserves_existing_file_on_write_failure(tmp_path: Path) -> None:
+    """Failed config writes should not truncate the last known-good config file."""
+    audio_file = tmp_path / "clip.mp3"
+    audio_file.write_text("dummy", encoding="utf-8")
+    config_path = _write_config(tmp_path)
+    original_config = config_path.read_text(encoding="utf-8")
+    mqtt_client = FakeMQTT()
+
+    service = NodeService(
+        config_path=config_path,
+        sensor=MockProximitySensor([900]),
+        audio_player=cast(Any, DummyAudio()),
+        led_feedback=cast(Any, DummyLED()),
+        haptics=cast(Any, DummyHaptics()),
+        mqtt_client=mqtt_client,
+    )
+
+    original_safe_dump = yaml.safe_dump
+
+    def _raising_safe_dump(*args: Any, **kwargs: Any) -> str:
+        original_safe_dump(*args, **kwargs)
+        raise yaml.YAMLError("write interrupted")
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(yaml, "safe_dump", _raising_safe_dump)
+    try:
+        with pytest.raises(yaml.YAMLError):
+            service._persist_runtime_config()
+    finally:
+        monkeypatch.undo()
+
+    assert config_path.read_text(encoding="utf-8") == original_config
+    assert not config_path.with_name(f"{config_path.name}.tmp").exists()
+
+
+def test_light_test_action_acknowledges_without_persisting(tmp_path: Path) -> None:
+    """Staff light tests should trigger hardware feedback without changing config version."""
+    audio_file = tmp_path / "clip.mp3"
+    audio_file.write_text("dummy", encoding="utf-8")
+    config_path = _write_config(tmp_path)
+    mqtt_client = FakeMQTT()
+    led = DummyLED()
+
+    service = NodeService(
+        config_path=config_path,
+        sensor=MockProximitySensor([900]),
+        audio_player=cast(Any, DummyAudio()),
+        led_feedback=cast(Any, led),
+        haptics=cast(Any, DummyHaptics()),
+        mqtt_client=mqtt_client,
+    )
+
+    service.handle_mqtt_message(
+        node_config_topic("test-node"),
+        json.dumps({"test": {"action": "light"}, "_request_id": "req-test"}),
+    )
+
+    ack = next(
+        body
+        for topic, body in mqtt_client.published
+        if topic == node_ack_topic("test-node")
+    )
+    assert ack["status"] == "ok"
+    assert ack["request_id"] == "req-test"
+    assert service.config.config_version == 0
+    assert led.history[-1][0] == "blink"
+
+
+def test_node_build_mqtt_client_uses_callback_api_v2_when_available() -> None:
+    """Node runtime should opt into the supported paho callback API when available."""
+    captured: dict[str, object] = {}
+
+    class FakeClient:
+        pass
+
+    def _fake_client(*args: object, **kwargs: object) -> FakeClient:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return FakeClient()
+
+    original_mqtt = node_service_module.mqtt
+    node_service_module.mqtt = cast(
+        Any,
+        SimpleNamespace(
+            CallbackAPIVersion=SimpleNamespace(VERSION2="v2"),
+            Client=_fake_client,
+        ),
+    )
+    try:
+        client = _build_mqtt_client()
+    finally:
+        node_service_module.mqtt = original_mqtt
+
+    assert isinstance(client, FakeClient)
+    assert captured["kwargs"] == {"callback_api_version": "v2"}

@@ -33,6 +33,17 @@ class ContentPack:
     base_url: str
 
 
+@dataclass(frozen=True)
+class PackValidationReport:
+    """Summarise whether a pack is safe and ready to activate."""
+
+    pack_name: str
+    missing_assets: list[str]
+    missing_nodes: list[str]
+    languages_by_node: dict[str, list[str]]
+    valid: bool
+
+
 class ContentManager:
     """Provide helpers for locating and loading content packs."""
 
@@ -86,13 +97,7 @@ class ContentManager:
 
     def _validate_pack_integrity(self, pack: ContentPack) -> None:
         """Check that all referenced assets exist on disk."""
-        missing = []
-        for (node_id, lang), asset in pack.media.items():
-            if not asset.audio_path.exists():
-                missing.append(f"{node_id}/{lang}: audio {asset.audio_path.name}")
-            if not asset.transcript_path.exists():
-                missing.append(f"{node_id}/{lang}: transcript {asset.transcript_path.name}")
-
+        missing = self.collect_missing_assets(pack)
         if missing:
             LOGGER.error(
                 "Content pack '%s' has missing assets:\n  - %s",
@@ -101,6 +106,38 @@ class ContentManager:
             )
         else:
             LOGGER.info("Content pack '%s' integrity check passed.", pack.name)
+
+    def collect_missing_assets(self, pack: ContentPack) -> list[str]:
+        """Return a list of missing media assets for a pack."""
+        missing = []
+        for (node_id, lang), asset in pack.media.items():
+            if not asset.audio_path.exists():
+                missing.append(f"{node_id}/{lang}: audio {asset.audio_path.name}")
+            if not asset.transcript_path.exists():
+                missing.append(f"{node_id}/{lang}: transcript {asset.transcript_path.name}")
+        return missing
+
+    def validate_pack(self, name: str) -> PackValidationReport:
+        """Load a pack and return a staff-friendly activation report."""
+        pack = self.load_pack(name)
+        missing_assets = self.collect_missing_assets(pack)
+        missing_nodes = [
+            node_id
+            for node_id in pack.nodes
+            if not any(media_node_id == node_id for media_node_id, _lang in pack.media)
+        ]
+        languages_by_node: dict[str, list[str]] = {}
+        for node_id in pack.nodes:
+            languages_by_node[node_id] = sorted(
+                lang for media_node_id, lang in pack.media if media_node_id == node_id
+            )
+        return PackValidationReport(
+            pack_name=pack.name,
+            missing_assets=missing_assets,
+            missing_nodes=missing_nodes,
+            languages_by_node=languages_by_node,
+            valid=not missing_assets and not missing_nodes,
+        )
 
     def get_fragment_for_node(self, node_id: str, language: str) -> Path | None:
         """Return the audio fragment path for a given node and language."""
@@ -200,9 +237,11 @@ class ContentManager:
             if not default_lang:
                 LOGGER.warning("Node '%s' missing default_language.", node_id_raw)
                 continue
+            label = str(node_meta.get("label", "")).strip() or node_id_raw.replace("_", " ").title()
             nodes[node_id_raw] = {
                 "role": role,
                 "default_language": default_lang,
+                "label": label,
             }
         return nodes
 
@@ -276,4 +315,4 @@ class ContentManager:
         return candidate
 
 
-__all__ = ["ContentManager", "ContentPack", "MediaAsset"]
+__all__ = ["ContentManager", "ContentPack", "MediaAsset", "PackValidationReport"]

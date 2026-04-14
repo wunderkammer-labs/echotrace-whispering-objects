@@ -24,7 +24,7 @@ def test_content_manager_loads_pack(tmp_path: Path) -> None:
     pack_yaml = {
         "name": "sample-pack",
         "nodes": {
-            "object1": {"role": "whisper", "default_language": "en"},
+            "object1": {"role": "whisper", "default_language": "en", "label": "Entry Artifact"},
         },
         "media": {
             "object1": {
@@ -42,6 +42,8 @@ def test_content_manager_loads_pack(tmp_path: Path) -> None:
 
     fragment_path = manager.get_fragment_for_node("object1", "en")
     assert fragment_path == audio_dir / "object1_en.mp3"
+    assert manager._active_pack is not None
+    assert manager._active_pack.nodes["object1"]["label"] == "Entry Artifact"
 
     transcript_url = manager.get_transcript_url("object1", "en")
     assert transcript_url is not None
@@ -155,3 +157,33 @@ def test_content_manager_ignores_media_paths_outside_pack(tmp_path: Path) -> Non
     assert pack.media == {}
     assert manager.get_fragment_for_node("object1", "en") is None
     assert manager.get_transcript_url("object1", "en") is None
+
+
+def test_validate_pack_reports_missing_assets(tmp_path: Path) -> None:
+    """Validation should produce a staff-friendly readiness report."""
+    pack_dir = tmp_path / "sample-pack"
+    (pack_dir / "transcripts").mkdir(parents=True)
+    (pack_dir / "audio").mkdir(parents=True)
+    (pack_dir / "transcripts" / "object1_en.html").write_text("<p>Transcript</p>", encoding="utf-8")
+    (pack_dir / "pack.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "sample-pack",
+                "nodes": {"object1": {"role": "whisper", "default_language": "en"}},
+                "media": {
+                    "object1": {
+                        "en": {
+                            "audio": "audio/object1_en.mp3",
+                            "transcript": "transcripts/object1_en.html",
+                        }
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = ContentManager(packs_root=tmp_path).validate_pack("sample-pack")
+    assert report.valid is False
+    assert report.missing_assets
+    assert report.languages_by_node["object1"] == ["en"]

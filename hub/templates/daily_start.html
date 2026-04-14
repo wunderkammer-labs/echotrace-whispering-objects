@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="daily-shell">
+    <div class="section-heading">
+        <div>
+            <h2>Open Exhibit</h2>
+            <p>Use this page each morning. Every status on this page is based on the current system state or a successful action sent to an object today.</p>
+        </div>
+        <div class="check-badge-group">
+            <span class="step-badge {% if daily_progress.readiness_complete %}complete{% else %}pending{% endif %}">{{ 'Ready' if daily_progress.readiness_complete else 'Review needed' }}</span>
+            <span class="step-badge {% if daily_progress.preset_complete %}complete{% else %}pending{% endif %}">{{ 'Preset chosen' if daily_progress.preset_complete else 'Choose preset' }}</span>
+            <span class="step-badge {% if daily_progress.nodes_complete %}complete{% else %}pending{% endif %}">{{ 'Objects checked' if daily_progress.nodes_complete else 'Check objects' }}</span>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>1. Review Overall Readiness</h2>
+            <p><strong>{{ status_banner.headline }}</strong> {{ status_banner.detail }}</p>
+        </div>
+        <span class="step-badge {% if daily_progress.readiness_complete %}complete{% else %}pending{% endif %}">
+            {{ 'No critical blockers' if daily_progress.readiness_complete else 'Critical issues remain' }}
+        </span>
+    </div>
+    {% if problems %}
+        <a class="button-link secondary" href="{{ url_for('problems_page') }}">Open Fix an Issue</a>
+    {% endif %}
+</section>
+
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>2. Choose the Day’s Operating Mode</h2>
+            <p>Pick the operating mode that matches today’s audience and schedule.</p>
+        </div>
+        <span class="step-badge {% if daily_progress.preset_complete %}complete{% else %}pending{% endif %}">
+            {% if daily_progress.preset_complete %}
+                {{ daily_progress.preset_label or 'Preset chosen' }}
+            {% else %}
+                No preset confirmed today
+            {% endif %}
+        </span>
+    </div>
+    <div class="action-grid">
+        {% for key, preset in operation_presets.items() %}
+            <form data-api="{{ url_for('api_operation_preset') }}" data-refresh="true" data-success-message="{{ preset.label }} preset applied.">
+                <input type="hidden" name="preset_key" value="{{ key }}">
+                <button type="submit">{{ preset.label }}</button>
+            </form>
+        {% endfor %}
+    </div>
+</section>
+
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>3. Confirm Each Object Responds</h2>
+            <p>An object counts as checked only after a successful test reaches it today.</p>
+        </div>
+        <span class="step-badge {% if daily_progress.nodes_complete %}complete{% else %}pending{% endif %}">
+            {% if daily_progress.nodes_complete %}
+                All objects checked today
+            {% else %}
+                Some objects still need a successful check
+            {% endif %}
+        </span>
+    </div>
+    {% if nodes %}
+        <div class="card-grid">
+            {% for node_id, meta in nodes.items() %}
+                {% set node_progress = daily_progress.node_statuses.get(node_id, {}) %}
+                <article class="node-card">
+                    <h3>{{ display_names.get(node_id, meta.label) }}</h3>
+                    <p class="subtle">
+                        {% if node_progress.get('tested_today') %}
+                            Checked today via {{ node_progress.get('actions', []) | join(', ') }}
+                        {% else %}
+                            Not yet checked today
+                        {% endif %}
+                    </p>
+                    <div class="action-grid compact">
+                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Sound test sent.">
+                            <input type="hidden" name="node_id" value="{{ node_id }}">
+                            <input type="hidden" name="action" value="sound">
+                            <button type="submit">Test Sound</button>
+                        </form>
+                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Light test sent.">
+                            <input type="hidden" name="node_id" value="{{ node_id }}">
+                            <input type="hidden" name="action" value="light">
+                            <button type="submit">Test Light</button>
+                        </form>
+                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Sensor check sent.">
+                            <input type="hidden" name="node_id" value="{{ node_id }}">
+                            <input type="hidden" name="action" value="sensor">
+                            <button type="submit">Check Sensor</button>
+                        </form>
+                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Reconnect request sent.">
+                            <input type="hidden" name="node_id" value="{{ node_id }}">
+                            <input type="hidden" name="action" value="reconnect">
+                            <button type="submit" class="secondary">Reconnect</button>
+                        </form>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p><em>No objects are available until a story pack is active.</em></p>
+    {% endif %}
+</section>
+
+<section>
+    <h2>4. Print and Visitor Support</h2>
+    <p>Use these only if printed materials changed or visitor support settings need to be adjusted today.</p>
+    <div class="action-grid">
+        <a class="button-link" href="{{ url_for('labels_page') }}">Open Print Cards</a>
+        <a class="button-link secondary" href="{{ url_for('accessibility_page') }}">Open Support Visitors</a>
+    </div>
+</section>
+{% endblock %}

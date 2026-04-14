@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,21 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "node_config.yaml"
 HEARTBEAT_INTERVAL_SECONDS = 15.0
 RETRIGGER_COOLDOWN_SECONDS = 5.0
 STORY_RESET_SECONDS = 8.0
+
+
+def _build_mqtt_client() -> Any:
+    if mqtt is None:
+        raise RuntimeError("paho-mqtt is required for node operation.")
+    callback_api = getattr(mqtt, "CallbackAPIVersion", None)
+    if callback_api is None:
+        return mqtt.Client()
+    return mqtt.Client(callback_api_version=callback_api.VERSION2)
+
+
+def _reason_code_value(reason_code: object) -> int:
+    if isinstance(reason_code, int):
+        return reason_code
+    return int(str(reason_code))
 
 
 @dataclass
@@ -162,6 +178,7 @@ class NodeConfig:
     proximity: ProximitySettings
     audio: AudioSettings
     accessibility: AccessibilitySettings
+    config_version: int
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> NodeConfig:
@@ -175,6 +192,7 @@ class NodeConfig:
             proximity=ProximitySettings.from_dict(data.get("proximity", {})),
             audio=AudioSettings.from_dict(data.get("audio", {})),
             accessibility=AccessibilitySettings.from_dict(data.get("accessibility", {})),
+            config_version=int(data.get("config_version", 0) or 0),
         )
 
     @staticmethod
@@ -249,6 +267,53 @@ class NodeService:
             return
         self._audio.load(fragment_path)
 
+    def _persist_runtime_config(self) -> None:
+        """Persist applied runtime config so nodes restart in sync with the hub."""
+        gpio = self._raw_config.get("gpio", {})
+        if not isinstance(gpio, dict):
+            gpio = {}
+        self._raw_config = {
+            "node_id": self.config.node_id,
+            "role": self.config.role,
+            "language_default": self.config.default_language,
+            "gpio": {
+                **gpio,
+                "led_pin": self.config.led_pin,
+                "haptic_pin": self.config.haptic_pin,
+            },
+            "proximity": {
+                "min_mm": self.config.proximity.min_mm,
+                "max_mm": self.config.proximity.max_mm,
+                "story_threshold_mm": self.config.proximity.story_threshold_mm,
+                "hysteresis_mm": self.config.proximity.hysteresis_mm,
+            },
+            "audio": {
+                "fragment_file": self.config.audio.fragment_file,
+                "volume": self.config.audio.volume,
+            },
+            "accessibility": {
+                "captions": self.config.accessibility.captions,
+                "visual_pulse": self.config.accessibility.visual_pulse,
+                "proximity_glow": self.config.accessibility.proximity_glow,
+                "mobility_buffer_ms": self.config.accessibility.mobility_buffer_ms,
+                "repeat": self.config.accessibility.repeat,
+                "pace": self.config.accessibility.pace,
+                "safety_limiter": self.config.accessibility.safety_limiter,
+            },
+            "config_version": self.config.config_version,
+            "broker_host": self._raw_config.get("broker_host", "localhost"),
+            "broker_port": self._raw_config.get("broker_port", 1883),
+        }
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = self.config_path.with_name(f"{self.config_path.name}.tmp")
+        try:
+            with temp_path.open("w", encoding="utf-8") as handle:
+                yaml.safe_dump(self._raw_config, handle, sort_keys=True)
+            os.replace(temp_path, self.config_path)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
     def _apply_accessibility(self) -> None:
         self._audio.set_safety_limit(self.config.accessibility.safety_limit())
         self._audio.set_volume(self.config.audio.volume)
@@ -266,9 +331,7 @@ class NodeService:
     # ------------------------------------------------------------------ MQTT
 
     def _create_mqtt_client(self) -> Any:
-        if mqtt is None:
-            raise RuntimeError("paho-mqtt is required for node operation.")
-        client = mqtt.Client()
+        client = _build_mqtt_client()
         client.on_connect = self._on_connect
         client.on_message = self._on_message
         return client
@@ -291,10 +354,12 @@ class NodeService:
         client: MQTTClient,
         _userdata: Any,
         _flags: Any,
-        rc: int,
+        reason_code: object,
+        _properties: Any = None,
     ) -> None:  # pragma: no cover - requires broker
-        if rc != 0:
-            LOGGER.error("MQTT connection failed with rc=%s", rc)
+        code = _reason_code_value(reason_code)
+        if code != 0:
+            LOGGER.error("MQTT connection failed with rc=%s", reason_code)
             return
         client.subscribe(node_config_topic(self.config.node_id))
         if self.config.role == "mystery":
@@ -328,6 +393,33 @@ class NodeService:
             LOGGER.warning("Configuration payload must be an object.")
             return
 
+        request_id = str(data.get("_request_id", "")).strip()
+        config_version_raw = data.get("config_version")
+        config_version = self.config.config_version
+        if isinstance(config_version_raw, int) and config_version_raw >= 0:
+            config_version = config_version_raw
+        test_meta = data.get("test")
+        if isinstance(test_meta, dict):
+            self._handle_test_action(test_meta, request_id)
+            return
+        if config_version < self.config.config_version:
+            LOGGER.warning(
+                "Ignoring stale config version %s on %s; current version is %s.",
+                config_version,
+                self.config.node_id,
+                self.config.config_version,
+            )
+            stale_ack_payload = json.dumps(
+                {
+                    "node_id": self.config.node_id,
+                    "status": "stale",
+                    "applied": [],
+                    "request_id": request_id,
+                    "config_version": self.config.config_version,
+                }
+            )
+            self._mqtt.publish(node_ack_topic(self.config.node_id), stale_ack_payload, qos=1)
+            return
         applied: list[str] = []
         if "audio" in data and isinstance(data["audio"], dict):
             self.config.audio.update(data["audio"])
@@ -340,12 +432,71 @@ class NodeService:
             self.config.accessibility.update(data["accessibility"])
             self._apply_accessibility()
             applied.append("accessibility")
+        try:
+            self.config.config_version = config_version
+            self._persist_runtime_config()
+            ack_payload = json.dumps(
+                {
+                    "node_id": self.config.node_id,
+                    "status": "ok",
+                    "applied": applied,
+                    "request_id": request_id,
+                    "config_version": self.config.config_version,
+                }
+            )
+        except (OSError, yaml.YAMLError) as exc:
+            LOGGER.error("Failed to persist runtime config for %s: %s", self.config.node_id, exc)
+            ack_payload = json.dumps(
+                {
+                    "node_id": self.config.node_id,
+                    "status": "error",
+                    "error": "persist_failed",
+                    "applied": applied,
+                    "request_id": request_id,
+                    "config_version": self.config.config_version,
+                }
+            )
+        self._mqtt.publish(node_ack_topic(self.config.node_id), ack_payload, qos=1)
+
+    def _handle_test_action(self, test_meta: dict[str, Any], request_id: str) -> None:
+        """Run a one-off staff test without mutating persisted runtime config."""
+        action = str(test_meta.get("action", "")).strip().lower()
+        status = "ok"
+        detail = action
+        try:
+            if action == "sound":
+                fragment_path = self.audio_fragment_path
+                if fragment_path is None or not fragment_path.exists():
+                    raise FileNotFoundError("No audio fragment is loaded for this node.")
+                self._audio.load(fragment_path)
+                self._apply_accessibility()
+                self._audio.play(loop=False, pace=1.0, repeat=0)
+            elif action == "light":
+                if self._led is None:
+                    raise RuntimeError("LED hardware is not available.")
+                self._led.blink(on_s=0.2, off_s=0.2)
+            elif action == "sensor":
+                distance = self._sensor.read_distance_mm()
+                detail = f"distance_mm={distance}"
+            elif action == "reconnect":
+                if hasattr(self._mqtt, "loop_stop"):
+                    self._mqtt.loop_stop()
+                self._connect_mqtt()
+            else:
+                raise ValueError(f"Unknown test action '{action}'.")
+        except Exception as exc:
+            LOGGER.warning("Test action '%s' failed on %s: %s", action, self.config.node_id, exc)
+            status = "error"
+            detail = str(exc)
 
         ack_payload = json.dumps(
             {
                 "node_id": self.config.node_id,
-                "status": "ok",
-                "applied": applied,
+                "status": status,
+                "applied": [f"test:{action}"],
+                "detail": detail,
+                "request_id": request_id,
+                "config_version": self.config.config_version,
             }
         )
         self._mqtt.publish(node_ack_topic(self.config.node_id), ack_payload, qos=1)
@@ -360,7 +511,7 @@ class NodeService:
         if unlocked and not self._mystery_played:
             LOGGER.info("Narrative unlocked; playing finale fragment on %s.", self.config.node_id)
             now = time.time()
-            self._start_story(now, force=True, mystery=True)
+            self._start_story(now, force=True, mystery=True, publish_trigger=False)
             self._mystery_played = True
         elif not unlocked:
             self._mystery_played = False
@@ -473,7 +624,14 @@ class NodeService:
             self._start_story(now)
             self._pending_story_at = None
 
-    def _start_story(self, now: float, *, force: bool = False, mystery: bool = False) -> None:
+    def _start_story(
+        self,
+        now: float,
+        *,
+        force: bool = False,
+        mystery: bool = False,
+        publish_trigger: bool = True,
+    ) -> None:
         if not force and (now < self._cooldown_until or self._story_active):
             return
         fragment_path = self.audio_fragment_path
@@ -503,14 +661,15 @@ class NodeService:
         if self._haptics:
             self._haptics.pulse(180)
 
-        trigger_payload = json.dumps(
-            {
-                "node_id": self.config.node_id,
-                "role": self.config.role,
-                "ts": now,
-            }
-        )
-        self._mqtt.publish(trigger_topic(self.config.node_id), trigger_payload, qos=1)
+        if publish_trigger:
+            trigger_payload = json.dumps(
+                {
+                    "node_id": self.config.node_id,
+                    "role": self.config.role,
+                    "ts": now,
+                }
+            )
+            self._mqtt.publish(trigger_topic(self.config.node_id), trigger_payload, qos=1)
 
     def _update_story_state(self, now: float) -> None:
         if self._story_active and now >= self._story_reset_time:
@@ -530,6 +689,8 @@ class NodeService:
             "ts": now,
             "rssi": self._get_rssi(),
             "sensor_status": self._sensor.status,
+            "config_version": self.config.config_version,
+            "fragment_file": self.config.audio.fragment_file,
         }
         message = json.dumps(payload)
         info = self._mqtt.publish(health_topic(self.config.node_id), message, qos=0)

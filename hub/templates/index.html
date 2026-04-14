@@ -1,29 +1,71 @@
 {% extends 'base.html' %}
 {% block content %}
+<section class="hero-grid">
+    <div class="hero-card">
+        <h2>Start Here</h2>
+        <p class="metric-label">{{ recommended_task.title }}</p>
+        <p>{{ recommended_task.detail }}</p>
+        <a class="button-link" href="{{ recommended_task.href }}">{{ recommended_task.label }}</a>
+    </div>
+    <div class="hero-card">
+        <h2>Today’s Exhibit Snapshot</h2>
+        <p class="metric-label">Active story</p>
+        <p class="metric-value">
+            {% if active_pack %}
+                {{ active_pack.name }}
+            {% else %}
+                No story selected
+            {% endif %}
+        </p>
+        <p class="metric-label">Mystery reveal</p>
+        <p class="metric-value">{{ 'Unlocked' if state['unlocked'] else 'Locked' }}</p>
+        <p class="metric-label">Fragments heard today</p>
+        <p class="metric-value">{{ state['triggered'] | length }}</p>
+    </div>
+</section>
+
 <section>
-    <h2>Installation Snapshot</h2>
-    <p>
-        Active content pack:
-        {% if active_pack %}
-            <strong>{{ active_pack.name }}</strong>
-        {% else %}
-            <em>No pack selected</em>
-        {% endif %}
-    </p>
-    <p>Narrative unlocked: <strong>{{ 'Yes' if state['unlocked'] else 'No' }}</strong></p>
-    <p>Triggered fragments:</p>
+    <h2>What Needs Attention</h2>
+    {% if problems %}
+        <ul class="checklist">
+            {% for problem in problems[:4] %}
+                <li>{{ problem.title }} {{ problem.action }}</li>
+            {% endfor %}
+        </ul>
+        <a class="button-link" href="{{ url_for('problems_page') }}">Open Fix an Issue</a>
+    {% else %}
+        <p>No urgent action is needed right now.</p>
+        <a class="button-link" href="{{ url_for('daily_start') }}">Open Exhibit</a>
+    {% endif %}
+</section>
+
+<section>
+    <h2>Most Common Tasks</h2>
+    <div class="action-grid">
+        <a class="button-link" href="{{ url_for('daily_start') }}">Open Exhibit</a>
+        <a class="button-link" href="{{ url_for('setup') }}">Set Up Exhibit</a>
+        <a class="button-link" href="{{ url_for('content') }}">Change Story</a>
+        <a class="button-link secondary" href="{{ url_for('accessibility_page') }}">Support Visitors</a>
+    </div>
+</section>
+
+<section>
+    <h2>Advanced Review</h2>
     {% if state['triggered'] %}
-        <ul>
+        <p>Triggered fragments:</p>
+        <ul class="checklist">
             {% for node in state['triggered'] %}
-                <li>{{ node }}</li>
+                <li>{{ node_display_names.get(node, node) }}</li>
             {% endfor %}
         </ul>
     {% else %}
-        <p><em>No fragments triggered yet.</em></p>
+        <p><em>No fragments have been triggered yet.</em></p>
     {% endif %}
-    <form data-api="{{ url_for('api_reset_state') }}" data-refresh="true">
-        <button type="submit" class="secondary">Reset State</button>
-    </form>
-    <a class="button-link" href="{{ url_for('api_export_csv') }}">Export CSV</a>
+    <div class="action-grid">
+        <form data-api="{{ url_for('api_reset_state') }}" data-refresh="true">
+            <button type="submit" class="secondary">Reset Exhibit State</button>
+        </form>
+        <a class="button-link secondary" href="{{ url_for('analytics') }}">Open Reports</a>
+    </div>
 </section>
 {% endblock %}
