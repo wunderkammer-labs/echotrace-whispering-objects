@@ -76,6 +76,56 @@ The admin dashboard provides clear, real-time control over the installation. It 
 8. **Analytics**  
    Displays engagement statistics such as number of interactions, completion rates, and average time between triggers. CSV data can be exported for evaluation and reporting. The dashboard provides insights into how visitors are engaging without tracking individuals.
 
+## Admin Dashboard Screenshots
+
+![Overview](hub/templates/screenshots/overview.png)  
+*Overview — The main command center recommends the next safe staff action, displays today's exhibit snapshot (active story, mystery reveal state, and fragments heard), surfaces active issues, and links to common daily tasks and session controls.*
+
+---
+
+![Hardware Status](hub/templates/screenshots/hardware_status.png)  
+*Hardware Status — Confirms the hub can see story packs and Raspberry Pi nodes after initial power-on. A step-by-step device checklist walks through commissioning in order, with next-step links for any items that need attention.*
+
+---
+
+![Open Exhibit](hub/templates/screenshots/daily-start.png)  
+*Open Exhibit — The morning opening checklist for front-line staff. Reviews overall system readiness, lets staff apply a daily operating preset (School Group, Quiet Morning, Busy Gallery, or Sensory-Friendly Hour), and provides one-click sound tests for every exhibit object.*
+
+---
+
+![Set Up Exhibit](hub/templates/screenshots/setup.png)  
+*Set Up Exhibit — Guides staff through initial exhibition configuration: choosing a story pack, naming objects to match gallery floor labels, selecting a starting visitor mode, running hardware checks, and confirming the exhibit is ready for daily opening.*
+
+---
+
+![Object Status](hub/templates/screenshots/nodes.png)  
+*Object Status — Lists every exhibit object with its staff-facing name, current health status, and quick-action buttons for sound, light, and sensor tests. Technical details and advanced configuration tools are available in Technician View.*
+
+---
+
+![Support Visitors](hub/templates/screenshots/accessibility.png)  
+*Support Visitors — Lets staff apply broad accessibility presets, adjust whole-gallery settings such as captions, quiet hours, and sensory-friendly playback, and fine-tune individual objects only when a single object needs special handling.*
+
+---
+
+![Change Story](hub/templates/screenshots/content.png)  
+*Change Story — Activates a new content pack and confirms it is visitor-ready. Shows a pack readiness summary, a per-object language availability table, and an operator checklist to verify names, default languages, and visitor card status before going live.*
+
+---
+
+![Fix an Issue](hub/templates/screenshots/problems.png)  
+*Fix an Issue — Lists active problems in severity order using plain-language warning cards. Each card describes the issue and provides a direct link to the recommended next action, such as opening Hardware Status or running exhibit setup.*
+
+---
+
+![Print Visitor Cards](hub/templates/screenshots/labels.png)  
+*Print Visitor Cards — Prepares formatted visitor card previews for each exhibit object, showing the object name, default language, transcript link for QR codes, and suggested label placement, with a single-click print action.*
+
+---
+
+![Analytics](hub/templates/screenshots/analytics.png)  
+*Analytics — Displays engagement statistics including mystery unlock status, triggered fragment count, and recent activity metrics. Administrators can export raw event data as CSV for evaluation and reporting.*
+
 ## Hardware Checklist
 
 | Role | Core Hardware |
