@@ -259,7 +259,7 @@ def test_select_pack_pushes_fragment_files(
 
     response = testing_client.post(
         "/api/select-pack",
-        json={"pack_name": "sample-pack"},
+        json={"pack_name": "sample-pack", "confirm_invalid": True},
         headers=_auth_header(),
     )
     assert response.status_code == 200
