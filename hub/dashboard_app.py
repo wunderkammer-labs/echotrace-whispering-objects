@@ -384,13 +384,19 @@ class DashboardContext:
         if any(problem["severity"] == "red" for problem in problems):
             return {
                 "title": "Resolve active issues",
-                "detail": "The exhibit is not ready to open until the critical problems are cleared.",
+                "detail": (
+                    "The exhibit is not ready to open until the critical "
+                    "problems are cleared."
+                ),
                 "href": url_for("problems_page"),
                 "label": "Open Problems",
             }
         return {
             "title": "Run the opening check",
-            "detail": "Daily Start is the main page for confirming today’s preset, object tests, and readiness.",
+            "detail": (
+                "Daily Start is the main page for confirming today’s preset, "
+                "object tests, and readiness."
+            ),
             "href": url_for("daily_start"),
             "label": "Open Daily Start",
         }

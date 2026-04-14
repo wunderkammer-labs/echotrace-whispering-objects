@@ -353,7 +353,7 @@ def test_nodes_page_handles_missing_heartbeat(
 def test_daily_start_progress_is_server_backed(
     client: tuple[FlaskClient, FakeHubController, Path]
 ) -> None:
-    """Daily opening progress should reflect successful server-side actions, not local checkboxes."""
+    """Daily opening progress should reflect server-side actions."""
     testing_client, _controller, _path = client
     initial = testing_client.get("/daily-start", headers=_auth_header())
     page = initial.data.decode("utf-8")
