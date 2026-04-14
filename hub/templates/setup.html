@@ -1,48 +1,103 @@
 {% extends 'base.html' %}
+{% from '_node_actions.html' import node_action_controls %}
 {% block content %}
 <section>
     <div class="section-heading">
         <div>
+            <p class="section-kicker">Exhibit Preparation</p>
             <h2>Set Up Exhibit</h2>
-            <p>Use this workflow when a new exhibition is installed or when the story pack changes. Finish these steps in order.</p>
+            <p>
+                Use this workflow when a new installation is handed over, when the
+                story changes, or when staff need to rebuild the exhibit from a clean
+                starting point.
+            </p>
         </div>
         <span class="step-badge {% if setup_progress.setup_complete and setup_progress.has_pack %}complete{% else %}pending{% endif %}">
-            {% if setup_progress.setup_complete and setup_progress.has_pack %}
-                Setup complete
-            {% else %}
-                Setup still in progress
-            {% endif %}
+            {{ 'Setup complete' if setup_progress.setup_complete and setup_progress.has_pack else 'Setup in progress' }}
         </span>
     </div>
+    <ul class="status-list">
+        <li>This page configures the exhibit experience after the hub and Raspberry Pis are already online.</li>
+        <li>If nodes are still missing or no story packs are visible, start with <a href="{{ url_for('commission') }}">Hardware Status</a>.</li>
+    </ul>
+    <div class="stats-grid">
+        <div class="mini-stat">
+            <p class="metric-label">Story selected</p>
+            <p class="metric-value">{{ 'Yes' if setup_progress.has_pack else 'No' }}</p>
+        </div>
+        <div class="mini-stat">
+            <p class="metric-label">Objects named</p>
+            <p class="metric-value">{{ setup_progress.named_nodes }}/{{ setup_progress.total_nodes }}</p>
+        </div>
+        <div class="mini-stat">
+            <p class="metric-label">Daily opening</p>
+            <p class="metric-value">{{ 'Ready' if setup_progress.setup_complete and setup_progress.has_pack else 'Pending' }}</p>
+        </div>
+    </div>
 </section>
 
-<section>
-    <h2>1. Choose the Story</h2>
-    <p>Start here. Object names and hardware checks depend on the active story pack.</p>
-    <form data-api="{{ url_for('api_select_pack') }}" data-refresh="true" data-success-message="Story pack activated.">
-        <label for="setup_pack_name">Story pack</label>
-        <select id="setup_pack_name" name="pack_name" required>
-            {% for name in pack_names %}
-                <option value="{{ name }}" {% if active_pack and active_pack.name == name %}selected{% endif %}>{{ name }}</option>
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Story First</p>
+                <h2>1. Choose the Story</h2>
+                <p>Start here. Object naming, visitor cards, and hardware checks depend on the active story pack.</p>
+            </div>
+        </div>
+        {% if pack_names %}
+            <form
+                data-api="{{ url_for('api_select_pack') }}"
+                data-refresh="true"
+                data-success-message="Story pack activated."
+            >
+                <label for="setup_pack_name">Story pack</label>
+                <select id="setup_pack_name" name="pack_name" required>
+                    {% for name in pack_names %}
+                        <option value="{{ name }}" {% if active_pack and active_pack.name == name %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Activate Story Pack</button>
+            </form>
+        {% else %}
+            <ul class="status-list">
+                <li>No story packs are available yet. Copy one into <code>content-packs/</code> on the hub, then return here.</li>
+            </ul>
+            <div class="action-grid compact">
+                <a class="button-link secondary" href="{{ url_for('commission') }}">Open Hardware Status</a>
+            </div>
+        {% endif %}
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Readiness</p>
+                <h2>Story Readiness</h2>
+                <p>Each pack is summarized here so staff can see whether it is safe to use.</p>
+            </div>
+        </div>
+        <div class="card-grid">
+            {% for pack_name, report in validation_map.items() %}
+                <article class="node-card">
+                    <p class="metric-label">Story pack</p>
+                    <h3>{{ pack_name }}</h3>
+                    <p><strong>Ready for use:</strong> {{ 'Yes' if report.valid else 'Not yet' }}</p>
+                    <p><strong>Files missing:</strong> {{ report.missing_assets | length }}</p>
+                    <p><strong>Objects missing media:</strong> {{ report.missing_nodes | length }}</p>
+                </article>
             {% endfor %}
-        </select>
-        <button type="submit">Activate Story Pack</button>
-    </form>
-    <div class="card-grid">
-        {% for pack_name, report in validation_map.items() %}
-            <article class="node-card">
-                <h3>{{ pack_name }}</h3>
-                <p><strong>Ready for use:</strong> {{ 'Yes' if report.valid else 'Not yet' }}</p>
-                <p><strong>Files missing:</strong> {{ report.missing_assets | length }}</p>
-                <p><strong>Objects missing media:</strong> {{ report.missing_nodes | length }}</p>
-            </article>
-        {% endfor %}
+        </div>
     </div>
 </section>
 
 <section>
-    <h2>2. Name the Objects for Staff</h2>
-    <p>Use names that match gallery labels so staff can identify each object quickly during opening checks.</p>
+    <div class="section-heading">
+        <div>
+            <p class="section-kicker">Naming</p>
+            <h2>2. Name the Objects for Staff</h2>
+            <p>Use names that match the gallery floor and wall labels so operators can find an object quickly during checks.</p>
+        </div>
+    </div>
     {% if nodes %}
         <form data-api="{{ url_for('api_node_display_names') }}" data-refresh="true">
             <div class="form-grid">
@@ -56,74 +111,85 @@
             <button type="submit">Save Staff-Facing Object Names</button>
         </form>
     {% else %}
-        <p><em>Activate a story pack first, then return to object naming.</em></p>
+        <ul class="status-list">
+            <li>Activate a story pack first, then return here to name the objects.</li>
+        </ul>
     {% endif %}
 </section>
 
-<section>
-    <h2>3. Choose a Starting Visitor Mode</h2>
-    <p>Pick the starting mode that best fits the exhibition. Staff can still change this later from Support Visitors.</p>
-    <form data-api="{{ url_for('api_operation_preset') }}" data-refresh="true">
-        <label for="wizard_preset_key">Starting visitor mode</label>
-        <select id="wizard_preset_key" name="preset_key" required>
-            {% for key, preset in operation_presets.items() %}
-                <option value="{{ key }}">{{ preset.label }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit">Apply Starting Mode</button>
-    </form>
-</section>
-
-<section>
-    <h2>4. Confirm the Hardware</h2>
-    <p>Run at least sound, light, and sensor checks for each object before handoff.</p>
-    {% if nodes %}
-        <div class="card-grid">
-            {% for node_id, meta in nodes.items() %}
-                <article class="node-card">
-                    <h3>{{ display_names.get(node_id, meta.label) }}</h3>
-                    <p class="subtle">{{ meta.role }} object</p>
-                    <div class="action-grid compact">
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Sound test sent.">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="sound">
-                            <button type="submit">Test Sound</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Light test sent.">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="light">
-                            <button type="submit">Test Light</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Sensor check sent.">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="sensor">
-                            <button type="submit">Check Sensor</button>
-                        </form>
-                    </div>
-                </article>
-            {% endfor %}
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Audience Mode</p>
+                <h2>3. Choose a Starting Visitor Mode</h2>
+                <p>Apply the initial audience mode that best matches the exhibition. Staff can still change this later.</p>
+            </div>
         </div>
-    {% else %}
-        <p><em>No hardware checks are available until a story pack is active.</em></p>
-    {% endif %}
-</section>
-
-<section>
-    <div class="section-heading">
-        <div>
-            <h2>5. Confirm Setup Handoff</h2>
-            <p>This summary helps staff know whether installation is complete enough to move into daily operations.</p>
-        </div>
-        <span class="step-badge {% if setup_progress.setup_complete and setup_progress.has_pack %}complete{% else %}pending{% endif %}">
-            {% if setup_progress.setup_complete and setup_progress.has_pack %}
-                Ready for daily opening
-            {% else %}
-                Finish the steps above first
-            {% endif %}
-        </span>
+        <form data-api="{{ url_for('api_operation_preset') }}" data-refresh="true">
+            <label for="wizard_preset_key">Starting visitor mode</label>
+            <select id="wizard_preset_key" name="preset_key" required>
+                {% for key, preset in operation_presets.items() %}
+                    <option value="{{ key }}">{{ preset.label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="secondary">Apply Starting Mode</button>
+        </form>
     </div>
-    <p><strong>Story selected:</strong> {{ 'Yes' if setup_progress.has_pack else 'No' }}</p>
-    <p><strong>Objects named for staff:</strong> {{ setup_progress.named_nodes }} of {{ setup_progress.total_nodes }}</p>
-    <a class="button-link" href="{{ url_for('daily_start') }}">Go to Open Exhibit</a>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Hardware Check</p>
+                <h2>4. Confirm the Hardware</h2>
+                <p>Run sound, light, and sensor checks before handoff to daily operations.</p>
+            </div>
+        </div>
+        {% if nodes %}
+            <div class="card-grid">
+                {% for node_id, meta in nodes.items() %}
+                    <article class="node-card">
+                        <p class="metric-label">{{ meta.role }} object</p>
+                        <h3>{{ display_names.get(node_id, meta.label) }}</h3>
+                        {{ node_action_controls(node_id, include_reconnect=False) }}
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <ul class="status-list">
+                <li>No hardware checks are available until a story pack is active.</li>
+            </ul>
+        {% endif %}
+    </div>
+</section>
+
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Handoff</p>
+                <h2>5. Confirm Setup Handoff</h2>
+                <p>This final review tells staff whether the exhibit is ready to move into normal opening checks.</p>
+            </div>
+            <span class="step-badge {% if setup_progress.setup_complete and setup_progress.has_pack %}complete{% else %}pending{% endif %}">
+                {{ 'Ready for daily opening' if setup_progress.setup_complete and setup_progress.has_pack else 'Finish the steps above' }}
+            </span>
+        </div>
+        <ul class="status-list">
+            <li><strong>Story selected:</strong> {{ 'Yes' if setup_progress.has_pack else 'No' }}</li>
+            <li><strong>Objects named for staff:</strong> {{ setup_progress.named_nodes }} of {{ setup_progress.total_nodes }}</li>
+        </ul>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">After Setup</p>
+                <h2>Next Step</h2>
+                <p>Once setup is complete, move to the opening checklist for day-to-day operation.</p>
+            </div>
+        </div>
+        <div class="action-grid compact">
+            <a class="button-link" href="{{ url_for('daily_start') }}">Go to Open Exhibit</a>
+        </div>
+    </div>
 </section>
 {% endblock %}

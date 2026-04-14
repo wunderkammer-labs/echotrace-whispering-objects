@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero-grid">
+    <article class="hero-card">
+        <p class="section-kicker">First Install</p>
+        <h2>Hardware Status</h2>
+        <p>
+            Use this page after the hub is running and the Raspberry Pis have been
+            powered on. It confirms the system can see the story packs, the nodes,
+            and the exhibit setup needed before daily opening checks.
+        </p>
+        <div class="action-grid compact">
+            <a class="button-link" href="{{ url_for('content') }}">Change Story</a>
+            <a class="button-link secondary" href="{{ url_for('nodes') }}">Open Object Status</a>
+        </div>
+    </article>
+    <article class="hero-card">
+        <p class="section-kicker">Device Snapshot</p>
+        <div class="stats-grid">
+            <div class="mini-stat">
+                <p class="metric-label">Story packs</p>
+                <p class="metric-value">{{ commissioning_status.story_pack_count }}</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Nodes seen</p>
+                <p class="metric-value">{{ commissioning_status.discovered_count }}</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Ready for opening</p>
+                <p class="metric-value">{{ 'Yes' if commissioning_status.ready_for_opening else 'Not yet' }}</p>
+            </div>
+        </div>
+    </article>
+</section>
+
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">What This Means</p>
+                <h2>What This Page Confirms</h2>
+                <p>
+                    This page is the bridge between device setup and exhibit use. It
+                    does not install software on the Raspberry Pis. It confirms the
+                    already-prepared hardware is visible to the hub and ready for
+                    exhibit setup.
+                </p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li><strong>Hub reachable:</strong> Dashboard is available at {{ commissioning_status.broker_host }}:{{ commissioning_status.broker_port }} for broker traffic.</li>
+            <li><strong>Story packs available:</strong> {{ 'Yes' if commissioning_status.has_story_packs else 'No' }}</li>
+            <li><strong>Nodes checking in:</strong> {{ commissioning_status.discovered_count }}</li>
+            <li><strong>Active story:</strong> {{ commissioning_status.active_pack_name if commissioning_status.active_pack_name else 'No story selected yet' }}</li>
+        </ul>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Next Step</p>
+                <h2>Next Safe Actions</h2>
+                <p>Choose the next page based on what is still missing.</p>
+            </div>
+        </div>
+        <div class="action-grid">
+            <a class="button-link secondary" href="{{ url_for('content') }}">Add or Activate a Story</a>
+            <a class="button-link secondary" href="{{ url_for('setup') }}">Configure the Exhibit</a>
+            <a class="button-link secondary" href="{{ url_for('daily_start') }}">Open Exhibit</a>
+            <a class="button-link secondary" href="{{ url_for('problems_page') }}">Fix an Issue</a>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="section-heading">
+        <div>
+            <p class="section-kicker">Checklist</p>
+                <h2>Device Checklist</h2>
+                <p>Work through these checks in order. Each step answers a common first-install question.</p>
+            </div>
+        </div>
+    <div class="card-grid">
+        {% for step in commissioning_steps %}
+            <article class="node-card">
+                <div class="section-heading">
+                    <div>
+                        <h3>{{ step.title }}</h3>
+                    </div>
+                    <span class="step-badge {% if step.state == 'complete' %}complete{% else %}pending{% endif %}">
+                        {{ 'Done' if step.state == 'complete' else 'Needs attention' }}
+                    </span>
+                </div>
+                <p>{{ step.detail }}</p>
+                {% if step.action_label %}
+                    <div class="action-grid compact">
+                        <a class="button-link secondary" href="{{ step.action_href }}">{{ step.action_label }}</a>
+                    </div>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">If Nothing Appears</p>
+                <h2>If No Nodes Appear Yet</h2>
+                <p>These are the most common first-install causes when the dashboard sees no objects.</p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li>The Raspberry Pis are still powered off or not on the same network as the hub.</li>
+            <li><code>broker_host</code> in <code>node_config.yaml</code> does not match the hub IP address.</li>
+            <li>The MQTT broker is not running on the hub yet.</li>
+        </ul>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">If Nothing Is Listed</p>
+                <h2>If the Story List Is Empty</h2>
+                <p>The hub can run only after at least one story pack has been copied into place.</p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li>Copy a story pack folder into <code>content-packs/</code> on the hub.</li>
+            <li>Open Change Story and confirm the pack appears in the list.</li>
+            <li>Activate the story before naming objects or printing visitor cards.</li>
+        </ul>
+    </div>
+</section>
+{% endblock %}

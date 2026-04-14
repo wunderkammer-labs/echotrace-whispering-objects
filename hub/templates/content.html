@@ -1,101 +1,179 @@
 {% extends 'base.html' %}
+{% from '_icons.html' import nav_icon %}
 {% block content %}
-<section>
-    <h2>Change Story</h2>
-    <p>Use this page when staff need to switch the active story pack. The main question here is simple: is the story safe to make live for visitors?</p>
-    <form data-api="{{ url_for('api_select_pack') }}" data-refresh="true">
-        <label for="pack_name">Choose story pack</label>
-        <select id="pack_name" name="pack_name" required>
-            {% for name in pack_names %}
-                <option value="{{ name }}" {% if active_pack and active_pack.name == name %}selected{% endif %}>{{ name }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit">Activate Story Pack</button>
-    </form>
-</section>
-
-<section>
-    <h2>Which Story Packs Are Ready</h2>
-    <div class="card-grid">
-        {% for pack_name, report in validation_map.items() %}
-            <article class="node-card">
-                <h3>{{ pack_name }}</h3>
-                <p><strong>Visitor-ready:</strong> {{ 'Yes' if report.valid else 'Not yet' }}</p>
-                <p><strong>Missing files:</strong> {{ report.missing_assets | length }}</p>
-                <p><strong>Objects missing media:</strong> {{ report.missing_nodes | length }}</p>
-                <p class="small">
-                    {% if report.valid %}
-                        Staff can activate this pack.
-                    {% else %}
-                        This pack needs technician or content-author attention before it goes live.
-                    {% endif %}
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Story Control</p>
+                <h2>Change Story</h2>
+                <p>
+                    Use this page when staff need to switch the story pack. The key
+                    question is whether the next story is safe to make live for
+                    visitors.
                 </p>
-            </article>
-        {% endfor %}
+            </div>
+        </div>
+        {% if pack_names %}
+            <form data-api="{{ url_for('api_select_pack') }}" data-refresh="true">
+                <label for="pack_name">Choose story pack</label>
+                <select id="pack_name" name="pack_name" required>
+                    {% for name in pack_names %}
+                        <option value="{{ name }}" {% if active_pack and active_pack.name == name %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Activate Story Pack</button>
+            </form>
+        {% else %}
+            <ul class="status-list">
+                <li>No story packs are available on this hub yet.</li>
+                <li>Copy a story pack folder into <code>content-packs/</code> on the hub, then reload this page.</li>
+            </ul>
+            <div class="action-grid compact">
+                <a class="button-link secondary" href="{{ url_for('commission') }}">Open Hardware Status</a>
+            </div>
+        {% endif %}
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Current Story</p>
+                <h2>Story in Use</h2>
+                <p>Review the active story before replacing visitor cards or changing opening checks.</p>
+            </div>
+        </div>
+        <div class="stats-grid">
+            <div class="mini-stat">
+                <p class="metric-label">Active story</p>
+                <p class="metric-value">{{ active_pack.name if active_pack else 'None' }}</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Languages</p>
+                <p>{{ pack_languages | join(', ') if pack_languages else 'None listed' }}</p>
+            </div>
+        </div>
     </div>
 </section>
 
 <section>
-    <h2>Current Story Review</h2>
-    {% if active_pack %}
-        <div class="hero-grid">
-            <article class="hero-card">
-                <h3>{{ active_pack.name }}</h3>
-                {% set report = validation_map.get(active_pack.name) %}
-                <p><strong>Ready for visitors:</strong> {{ 'Yes' if report and report.valid else 'No' }}</p>
-                <p><strong>Objects in this story:</strong> {{ active_pack.nodes | length }}</p>
-                <p><strong>Languages available:</strong> {{ pack_languages | join(', ') if pack_languages else 'None listed' }}</p>
-            </article>
-            <article class="hero-card">
-                <h3>What staff should verify</h3>
-                <ul class="checklist">
-                    <li>Do the object names match the gallery labels?</li>
-                    <li>Is the default language correct for this exhibition?</li>
-                    <li>Do printed visitor cards need to be replaced?</li>
-                </ul>
-            </article>
+    <div class="section-heading">
+        <div>
+            <p class="section-kicker">Readiness</p>
+            <h2>Story Pack Readiness</h2>
+            <p>Each story pack is summarized here in operational language instead of raw file inventory.</p>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Object</th>
-                    <th>Default language</th>
-                    <th>Visitor card ready</th>
-                    <th>Languages available</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for node_id, meta in active_pack.nodes.items() %}
-                    {% set languages = [] %}
-                    {% for lang in pack_languages %}
-                        {% if active_pack.media.get((node_id, lang)) %}
-                            {% set _ = languages.append(lang) %}
+    </div>
+    {% if validation_map %}
+        <div class="card-grid">
+            {% for pack_name, report in validation_map.items() %}
+                <article class="node-card {% if not report.valid %}warning{% endif %}">
+                    <p class="metric-label">Story pack</p>
+                    <h3>{% if not report.valid %}{{ nav_icon('triangle-alert') }}{% endif %}{{ pack_name }}</h3>
+                    <p><strong>Visitor-ready:</strong> {{ 'Yes' if report.valid else 'Not yet' }}</p>
+                    <p><strong>Missing files:</strong> {{ report.missing_assets | length }}</p>
+                    <p><strong>Objects missing media:</strong> {{ report.missing_nodes | length }}</p>
+                    <p class="small">
+                        {% if report.valid %}
+                            Staff can activate this pack.
+                        {% else %}
+                            This pack needs technician or content-author attention before it goes live.
                         {% endif %}
-                    {% endfor %}
-                    <tr>
-                        <td>{{ meta.label }}</td>
-                        <td>{{ meta.default_language }}</td>
-                        <td>{% if active_pack.media.get((node_id, meta.default_language)) %}Yes{% else %}No{% endif %}</td>
-                        <td>{{ languages | join(', ') if languages else 'No files found' }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <details class="advanced-panel">
-            <summary>Technician details</summary>
-            {% if report and report.missing_assets %}
-                <h3>Missing Files</h3>
-                <ul class="checklist">
-                    {% for item in report.missing_assets %}
-                        <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p>No missing files are currently reported for this story pack.</p>
-            {% endif %}
-        </details>
+                    </p>
+                </article>
+            {% endfor %}
+        </div>
     {% else %}
-        <p><em>No story pack is active.</em></p>
+        <ul class="status-list">
+            <li>No packs are available to review yet.</li>
+        </ul>
     {% endif %}
+</section>
+
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Review</p>
+                <h2>Active Story Review</h2>
+                <p>Use this review before opening the exhibit with a new story or replacing visitor materials.</p>
+            </div>
+        </div>
+        {% if active_pack %}
+            <div class="stats-grid">
+                <div class="mini-stat">
+                    <p class="metric-label">Ready for visitors</p>
+                    {% set report = validation_map.get(active_pack.name) %}
+                    <p class="metric-value">{{ 'Yes' if report and report.valid else 'No' }}</p>
+                </div>
+                <div class="mini-stat">
+                    <p class="metric-label">Objects in story</p>
+                    <p class="metric-value">{{ active_pack.nodes | length }}</p>
+                </div>
+                <div class="mini-stat">
+                    <p class="metric-label">Languages available</p>
+                    <p>{{ pack_languages | join(', ') if pack_languages else 'None listed' }}</p>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Object</th>
+                        <th>Default language</th>
+                        <th>Visitor card ready</th>
+                        <th>Languages available</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for node_id, meta in active_pack.nodes.items() %}
+                        {% set languages = [] %}
+                        {% for lang in pack_languages %}
+                            {% if active_pack.media.get((node_id, lang)) %}
+                                {% set _ = languages.append(lang) %}
+                            {% endif %}
+                        {% endfor %}
+                        <tr>
+                            <td>{{ meta.label }}</td>
+                            <td>{{ meta.default_language }}</td>
+                            <td>{% if active_pack.media.get((node_id, meta.default_language)) %}Yes{% else %}No{% endif %}</td>
+                            <td>{{ languages | join(', ') if languages else 'No files found' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <ul class="status-list">
+                <li>No story pack is active.</li>
+            </ul>
+        {% endif %}
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Operator Check</p>
+                <h2>What Staff Should Verify</h2>
+                <p>These checks keep the story change aligned with the gallery floor.</p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li>Do the object names match the gallery labels?</li>
+            <li>Is the default language right for this exhibition?</li>
+            <li>Do printed visitor cards need replacement?</li>
+        </ul>
+        {% if active_pack %}
+            {% set report = validation_map.get(active_pack.name) %}
+            <details class="advanced-panel">
+                <summary>Technician details</summary>
+                {% if report and report.missing_assets %}
+                    <ul class="checklist">
+                        {% for item in report.missing_assets %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No missing files are currently reported for this story pack.</p>
+                {% endif %}
+            </details>
+        {% endif %}
+    </div>
 </section>
 {% endblock %}

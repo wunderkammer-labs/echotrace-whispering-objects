@@ -263,6 +263,176 @@ class DashboardContext:
             "total_nodes": len(nodes),
         }
 
+    def has_story_packs(self) -> bool:
+        return bool(self.content_manager.list_packs())
+
+    def discovered_nodes(self) -> list[str]:
+        return sorted(self.health_snapshot().keys())
+
+    def expected_nodes(self) -> list[str]:
+        if self.current_pack is None:
+            return []
+        return sorted(self.current_pack.nodes.keys())
+
+    def missing_expected_nodes(self) -> list[str]:
+        expected = set(self.expected_nodes())
+        discovered = set(self.discovered_nodes())
+        return sorted(expected - discovered)
+
+    def unexpected_nodes(self) -> list[str]:
+        expected = set(self.expected_nodes())
+        discovered = set(self.discovered_nodes())
+        if not expected:
+            return self.discovered_nodes()
+        return sorted(discovered - expected)
+
+    def commissioning_status(self) -> dict[str, Any]:
+        packs = self.content_manager.list_packs()
+        discovered = self.discovered_nodes()
+        expected = self.expected_nodes()
+        missing = self.missing_expected_nodes()
+        unexpected = self.unexpected_nodes()
+        return {
+            "dashboard_ready": True,
+            "broker_host": self.config.broker_host,
+            "broker_port": self.config.broker_port,
+            "has_story_packs": bool(packs),
+            "story_pack_count": len(packs),
+            "active_pack_name": self.current_pack.name if self.current_pack else "",
+            "discovered_nodes": discovered,
+            "discovered_count": len(discovered),
+            "expected_nodes": expected,
+            "expected_count": len(expected),
+            "missing_expected_nodes": missing,
+            "unexpected_nodes": unexpected,
+            "setup_complete": self.setup_complete(),
+            "ready_for_opening": self.setup_complete()
+            and self.current_pack is not None
+            and (not expected or not missing),
+        }
+
+    def commissioning_steps(self) -> list[dict[str, str]]:
+        status = self.commissioning_status()
+        steps: list[dict[str, str]] = [
+            {
+                "title": "Confirm the hub is reachable",
+                "state": "complete",
+                "detail": (
+                    "You are already in the dashboard. The hub is running at "
+                    f"{self.config.dashboard_host}:{self.config.dashboard_port}."
+                ),
+                "action_label": "",
+                "action_href": "",
+            }
+        ]
+        if status["has_story_packs"]:
+            steps.append(
+                {
+                    "title": "Load at least one story pack",
+                    "state": "complete",
+                    "detail": f"{status['story_pack_count']} story pack(s) are available.",
+                    "action_label": "Open Change Story",
+                    "action_href": url_for("content"),
+                }
+            )
+        else:
+            steps.append(
+                {
+                    "title": "Load at least one story pack",
+                    "state": "pending",
+                    "detail": (
+                        "No story packs are available yet. Copy a pack into "
+                        "content-packs/ on the hub, then return here."
+                    ),
+                    "action_label": "Open Change Story",
+                    "action_href": url_for("content"),
+                }
+            )
+
+        discovered = cast(list[str], status["discovered_nodes"])
+        if discovered:
+            steps.append(
+                {
+                    "title": "Confirm the Raspberry Pi nodes are checking in",
+                    "state": "complete",
+                    "detail": (
+                        f"{status['discovered_count']} node(s) have checked in: "
+                        + ", ".join(discovered)
+                    ),
+                    "action_label": "Open Object Status",
+                    "action_href": url_for("nodes"),
+                }
+            )
+        else:
+            steps.append(
+                {
+                    "title": "Confirm the Raspberry Pi nodes are checking in",
+                    "state": "pending",
+                    "detail": (
+                        "No nodes have checked in yet. Power on the nodes, confirm they "
+                        "share the hub network, and check broker_host in node_config.yaml."
+                    ),
+                    "action_label": "Open Object Status",
+                    "action_href": url_for("nodes"),
+                }
+            )
+
+        if self.current_pack is None:
+            steps.append(
+                {
+                    "title": "Choose the story and configure the exhibit",
+                    "state": "pending",
+                    "detail": "No active story is selected yet.",
+                    "action_label": "Open Set Up Exhibit",
+                    "action_href": url_for("setup"),
+                }
+            )
+        elif status["missing_expected_nodes"]:
+            missing_labels = [
+                self.display_name_for(node_id, self.current_pack.nodes.get(node_id, {}))
+                for node_id in cast(list[str], status["missing_expected_nodes"])
+            ]
+            steps.append(
+                {
+                    "title": "Match the active story to the physical objects",
+                    "state": "pending",
+                    "detail": (
+                        "The active story expects these object nodes: "
+                        + ", ".join(missing_labels)
+                        + "."
+                    ),
+                    "action_label": "Open Object Status",
+                    "action_href": url_for("nodes"),
+                }
+            )
+        elif self.setup_complete():
+            steps.append(
+                {
+                    "title": "Finish exhibit setup",
+                    "state": "complete",
+                    "detail": (
+                        "The exhibit has been commissioned and can move into "
+                        "daily opening checks."
+                    ),
+                    "action_label": "Open Exhibit",
+                    "action_href": url_for("daily_start"),
+                }
+            )
+        else:
+            steps.append(
+                {
+                    "title": "Finish exhibit setup",
+                    "state": "pending",
+                    "detail": (
+                        "Now that the hub, nodes, and story are visible, finish naming "
+                        "objects and run the first hardware checks."
+                    ),
+                    "action_label": "Open Set Up Exhibit",
+                    "action_href": url_for("setup"),
+                }
+            )
+        return steps
+
     def operation_presets(self) -> dict[str, dict[str, Any]]:
         return {
             "school_group": {
@@ -374,12 +544,22 @@ class DashboardContext:
 
     def recommended_task(self) -> dict[str, str]:
         problems = self.system_problems()
+        if not self.has_story_packs() or not self.discovered_nodes():
+            return {
+                "title": "Connect exhibit devices",
+                "detail": (
+                    "Use this page to confirm the hub, nodes, and story packs are "
+                    "all visible before exhibit setup."
+                ),
+                "href": url_for("commission"),
+                "label": "Open Hardware Status",
+            }
         if not self.setup_complete():
             return {
                 "title": "Finish exhibit setup",
-                "detail": "Run the setup workflow before relying on daily opening checks.",
+                "detail": "Use Set Up Exhibit before relying on the opening checklist.",
                 "href": url_for("setup"),
-                "label": "Start Setup Wizard",
+                "label": "Open Set Up Exhibit",
             }
         if any(problem["severity"] == "red" for problem in problems):
             return {
@@ -389,16 +569,16 @@ class DashboardContext:
                     "problems are cleared."
                 ),
                 "href": url_for("problems_page"),
-                "label": "Open Problems",
+                "label": "Fix an Issue",
             }
         return {
             "title": "Run the opening check",
             "detail": (
-                "Daily Start is the main page for confirming today’s preset, "
+                "Open Exhibit is the main page for confirming today’s preset, "
                 "object tests, and readiness."
             ),
             "href": url_for("daily_start"),
-            "label": "Open Daily Start",
+            "label": "Open Exhibit",
         }
 
     def system_problems(self) -> list[dict[str, str]]:
@@ -409,7 +589,7 @@ class DashboardContext:
                 {
                     "severity": "red",
                     "title": "No content pack is active.",
-                    "action": "Open Content and activate a pack before visitors arrive.",
+                    "action": "Open Change Story and activate a pack before visitors arrive.",
                     "link_href": url_for("content"),
                     "link_label": "Open Change Story",
                 }
@@ -420,11 +600,40 @@ class DashboardContext:
                     "severity": "red",
                     "title": f"Pack '{pack_validation.pack_name}' is missing required files.",
                     "action": (
-                        "Open Content, review the checklist, and replace missing "
+                        "Open Change Story, review the checklist, and replace missing "
                         "audio or transcript files."
                     ),
                     "link_href": url_for("content"),
                     "link_label": "Open Change Story",
+                }
+            )
+
+        if not self.has_story_packs():
+            problems.append(
+                {
+                    "severity": "red",
+                    "title": "No story packs are available on the hub.",
+                    "action": (
+                        "Copy at least one pack into content-packs/ on the hub, then "
+                        "activate it from Change Story."
+                    ),
+                    "link_href": url_for("commission"),
+                    "link_label": "Open Hardware Status",
+                }
+            )
+
+        discovered_nodes = self.discovered_nodes()
+        if not discovered_nodes:
+            problems.append(
+                {
+                    "severity": "yellow",
+                    "title": "No Raspberry Pi nodes have checked in yet.",
+                    "action": (
+                        "Power on the nodes, confirm they share the hub network, and "
+                        "check broker_host in node_config.yaml."
+                    ),
+                    "link_href": url_for("commission"),
+                    "link_label": "Open Hardware Status",
                 }
             )
 
@@ -440,12 +649,12 @@ class DashboardContext:
                         "title": f"{display_name} has not checked in for {int(age)} seconds.",
                         "action": (
                             "Check power and network, then use Reconnect from Daily "
-                            "Start or Nodes."
+                            "Start or Object Status."
                         ),
                         "node_id": node_id,
                         "node_action": "reconnect",
                         "link_href": url_for("daily_start"),
-                        "link_label": "Open Daily Start",
+                        "link_label": "Open Exhibit",
                     }
                 )
             elif config_sync == "stale":
@@ -470,11 +679,11 @@ class DashboardContext:
                     "severity": "yellow",
                     "title": "First-run setup has not been completed.",
                     "action": (
-                        "Run the Setup Wizard once to name nodes and confirm the "
+                        "Run Set Up Exhibit once to name nodes and confirm the "
                         "exhibit is ready."
                     ),
                     "link_href": url_for("setup"),
-                    "link_label": "Open Setup Wizard",
+                    "link_label": "Open Set Up Exhibit",
                 }
             )
         return problems
@@ -612,6 +821,8 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
         template_folder=str(Path(__file__).resolve().parent / "templates"),
         static_folder=str(Path(__file__).resolve().parent / "static"),
     )
+    css_asset = Path(app.static_folder or "static") / "css" / "style.css"
+    js_asset = Path(app.static_folder or "static") / "js" / "app.js"
 
     try:
         accessibility = load_profiles(ACCESSIBILITY_PATH)
@@ -704,15 +915,40 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
         accessibility_global = ctx.accessibility.get("global", {})
         global_view = accessibility_global if isinstance(accessibility_global, dict) else {}
         nav_sections = [
-            ("daily_start", "Open Exhibit", url_for("daily_start"), "primary"),
-            ("setup", "Set Up Exhibit", url_for("setup"), "primary"),
-            ("problems_page", "Fix an Issue", url_for("problems_page"), "primary"),
-            ("content", "Change Story", url_for("content"), "primary"),
-            ("accessibility_page", "Support Visitors", url_for("accessibility_page"), "primary"),
-            ("labels_page", "Print Cards", url_for("labels_page"), "secondary"),
-            ("nodes", "Object Status", url_for("nodes"), "secondary"),
-            ("analytics", "Reports", url_for("analytics"), "secondary"),
-            ("index", "Overview", url_for("index"), "secondary"),
+            (
+                "index",
+                "Overview",
+                url_for("index"),
+                "overview",
+                "layout-dashboard",
+            ),
+            (
+                "commission",
+                "Hardware Status",
+                url_for("commission"),
+                "primary",
+                "radio",
+            ),
+            ("daily_start", "Open Exhibit", url_for("daily_start"), "primary", "play"),
+            ("setup", "Set Up Exhibit", url_for("setup"), "primary", "wand"),
+            (
+                "problems_page",
+                "Fix an Issue",
+                url_for("problems_page"),
+                "primary",
+                "triangle-alert",
+            ),
+            ("content", "Change Story", url_for("content"), "primary", "book-open"),
+            (
+                "accessibility_page",
+                "Support Visitors",
+                url_for("accessibility_page"),
+                "primary",
+                "accessibility",
+            ),
+            ("labels_page", "Print Cards", url_for("labels_page"), "secondary", "printer"),
+            ("nodes", "Object Status", url_for("nodes"), "secondary", "radio"),
+            ("analytics", "Reports", url_for("analytics"), "secondary", "chart-column"),
         ]
         return {
             "hub_config": ctx.config,
@@ -724,6 +960,8 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             "status_banner": ctx.status_banner(),
             "active_endpoint": request.endpoint or "",
             "nav_sections": nav_sections,
+            "style_asset_version": int(css_asset.stat().st_mtime) if css_asset.exists() else 0,
+            "script_asset_version": int(js_asset.stat().st_mtime) if js_asset.exists() else 0,
         }
 
     @app.after_request
@@ -755,7 +993,19 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             problems=ctx.system_problems(),
             status_banner=ctx.status_banner(),
             recommended_task=ctx.recommended_task(),
+            commissioning_status=ctx.commissioning_status(),
             title="Overview",
+        )
+
+    @app.route("/commission")
+    @require_auth
+    def commission() -> str:
+        ctx = get_context()
+        return render_template(
+            "commission.html",
+            commissioning_status=ctx.commissioning_status(),
+            commissioning_steps=ctx.commissioning_steps(),
+            title="Hardware Status",
         )
 
     @app.route("/nodes")
@@ -785,6 +1035,7 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             heartbeat_ages=heartbeat_ages,
             assignments=assignments,
             object_statuses=object_statuses,
+            commissioning_status=ctx.commissioning_status(),
             display_names=ctx.display_names(),
             museum_staff_mode=ctx.museum_staff_mode(),
             title="Object Status",
@@ -801,7 +1052,7 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             nodes=ctx.current_pack.nodes if ctx.current_pack else {},
             display_names=ctx.display_names(),
             operation_presets=ctx.operation_presets(),
-            title="Accessibility",
+            title="Support Visitors",
         )
 
     @app.route("/calibration")
@@ -824,7 +1075,8 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             pack_names=all_packs,
             validation_map=ctx.pack_validation_map(),
             pack_languages=ctx.pack_languages(pack),
-            title="Content",
+            commissioning_status=ctx.commissioning_status(),
+            title="Change Story",
         )
 
     @app.route("/analytics")
@@ -851,8 +1103,9 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             pack_names=ctx.content_manager.list_packs(),
             validation_map=ctx.pack_validation_map(),
             operation_presets=ctx.operation_presets(),
+            commissioning_status=ctx.commissioning_status(),
             setup_progress=ctx.setup_progress(),
-            title="Setup Wizard",
+            title="Set Up Exhibit",
         )
 
     @app.route("/daily-start")
@@ -868,7 +1121,7 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             validation=ctx.current_pack_validation(),
             operation_presets=ctx.operation_presets(),
             daily_progress=ctx.daily_start_progress(),
-            title="Daily Start",
+            title="Open Exhibit",
         )
 
     @app.route("/problems")
@@ -879,7 +1132,7 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             "problems.html",
             problems=ctx.system_problems(),
             display_names=ctx.display_names(),
-            title="Problems",
+            title="Fix an Issue",
         )
 
     @app.route("/labels")
@@ -908,7 +1161,7 @@ def create_app(config: HubConfig | None = None, hub_controller: Any | None = Non
             "labels.html",
             labels=labels,
             active_pack=pack,
-            title="Transcript Cards",
+            title="Print Visitor Cards",
         )
 
     @app.route("/api/health")

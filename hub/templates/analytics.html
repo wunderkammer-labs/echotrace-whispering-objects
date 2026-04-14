@@ -1,42 +1,85 @@
 {% extends 'base.html' %}
 {% block content %}
-<section>
-    <h2>Analytics Summary</h2>
-    <p>Mystery unlock status: <strong>{{ 'Unlocked' if state['unlocked'] else 'Locked' }}</strong></p>
-    <p>Triggered fragments: <strong>{{ state['triggered'] | length }}</strong></p>
-    <a class="button-link" href="{{ url_for('api_export_csv') }}">Download CSV Export</a>
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Summary</p>
+                <h2>Analytics Summary</h2>
+                <p>Use this page to review activity patterns, exhibit completion, and heartbeat trends across the installation.</p>
+            </div>
+        </div>
+        <div class="stats-grid">
+            <div class="mini-stat">
+                <p class="metric-label">Mystery unlock status</p>
+                <p class="metric-value">{{ 'Unlocked' if state['unlocked'] else 'Locked' }}</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Triggered fragments</p>
+                <p class="metric-value">{{ state['triggered'] | length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="panel-support action-grid compact">
+        <a class="button-link" href="{{ url_for('api_export_csv') }}">Download CSV Export</a>
+    </div>
 </section>
 
 <section id="analytics-dashboard">
-    <h2>Latest Metrics</h2>
+    <div class="section-heading">
+        <div>
+            <p class="section-kicker">Recent Data</p>
+            <h2>Latest Metrics</h2>
+            <p>The summary below updates from the local analytics log.</p>
+        </div>
+    </div>
     <div id="analytics-status"><em>Loading analytics…</em></div>
     <div id="analytics-content" style="display:none;">
-        <p>Total triggers logged: <strong id="total-triggers">0</strong></p>
-        <p>Narrative unlocks: <strong id="narrative-unlocks">0</strong></p>
-        <p>Completion rate: <strong id="completion-rate">0%</strong></p>
-        <p>Average time between triggers: <strong id="mean-interval">0s</strong></p>
+        <div class="stats-grid">
+            <div class="mini-stat">
+                <p class="metric-label">Total triggers logged</p>
+                <p class="metric-value" id="total-triggers">0</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Narrative unlocks</p>
+                <p class="metric-value" id="narrative-unlocks">0</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Completion rate</p>
+                <p class="metric-value" id="completion-rate">0%</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Average trigger interval</p>
+                <p class="metric-value" id="mean-interval">0s</p>
+            </div>
+        </div>
 
-        <h3>Triggers by Node</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Node</th>
-                    <th>Trigger Count</th>
-                </tr>
-            </thead>
-            <tbody id="trigger-table"></tbody>
-        </table>
-
-        <h3>Heartbeat Counts</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Node</th>
-                    <th>Heartbeats Logged</th>
-                </tr>
-            </thead>
-            <tbody id="heartbeat-table"></tbody>
-        </table>
+        <div class="split-panel">
+            <div>
+                <h3>Triggers by Node</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Node</th>
+                            <th>Trigger Count</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trigger-table"></tbody>
+                </table>
+            </div>
+            <div>
+                <h3>Heartbeat Counts</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Node</th>
+                            <th>Heartbeats Logged</th>
+                        </tr>
+                    </thead>
+                    <tbody id="heartbeat-table"></tbody>
+                </table>
+            </div>
+        </div>
 
         <h3>Recent Events</h3>
         <table>

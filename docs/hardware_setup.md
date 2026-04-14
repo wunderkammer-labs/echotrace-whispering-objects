@@ -39,20 +39,156 @@ Refer to `fabrication/wiring_fritzing.png` for a starter schematic. Adapt the la
 
 ## Software Installation
 
+Prepare the hub first, then prepare one node at a time.
+
 1. Flash Raspberry Pi OS Lite onto each microSD card.
-2. Enable SSH (`sudo raspi-config` → Interface Options → SSH) for remote updates.
-3. On the hub, install Mosquitto (`sudo apt install mosquitto mosquitto-clients`).
-4. Clone this repository into `/opt/echotrace` on the hub and `/opt/echotrace-node` on each node.
-5. Create a Python virtual environment and install dependencies: `python3 -m venv .venv && . .venv/bin/activate && make install` (or `pip install -r requirements.txt -r requirements-dev.txt`).
-6. Review `hub/config.yaml` and each node’s `pi_nodes/node_config.yaml` to ensure broker hostnames, node IDs, and audio file paths are correct.
+2. Boot each Raspberry Pi once with a keyboard and monitor attached, or prepare SSH access if that is how your museum manages Raspberry Pis.
+3. On every Raspberry Pi, enable SSH so you can return to the device later:
+   - run `sudo raspi-config`
+   - open **Interface Options**
+   - enable **SSH**
+4. On each node Raspberry Pi, also enable I2C for the VL53L1X sensor:
+   - run `sudo raspi-config`
+   - open **Interface Options**
+   - enable **I2C**
+5. Confirm that every Raspberry Pi joins the same local network before continuing.
+
+### Hub software setup
+
+1. On the hub, install Mosquitto:
+   ```
+   sudo apt update
+   sudo apt install mosquitto mosquitto-clients
+   sudo systemctl enable --now mosquitto
+   ```
+2. Clone this repository onto the hub at `/opt/echotrace`.
+3. Create a Python virtual environment and install dependencies:
+   ```
+   cd /opt/echotrace
+   python3 -m venv .venv
+   . .venv/bin/activate
+   make install
+   ```
+4. Review `hub/config.yaml`.
+   For most museums, leave these defaults as they are:
+   - `broker_host: localhost`
+   - `broker_port: 1883`
+   - `dashboard_port: 8080`
+5. Set dashboard administrator credentials in the environment used by the service:
+   - `ECHOTRACE_ADMIN_USER`
+   - `ECHOTRACE_ADMIN_PASS`
+6. Note the hub IP address with:
+   ```
+   hostname -I
+   ```
+
+At the end of hub setup, you should know the hub IP address and be able to say, “this is the Raspberry Pi the dashboard will run on.”
+
+### Node software setup
+
+1. Clone this repository onto one node at a time, typically at `/opt/echotrace-node`.
+2. Create a Python virtual environment and install dependencies:
+   ```
+   cd /opt/echotrace-node
+   python3 -m venv .venv
+   . .venv/bin/activate
+   make install
+   ```
+3. Open `pi_nodes/node_config.yaml`.
+4. Set `node_id` to match the physical object you are building.
+   Recommended IDs for the sample project are:
+   - `object1`
+   - `object2`
+   - `object3`
+   - `object4`
+   - `mystery`
+5. Set `role`:
+   - use `whisper` for the four regular objects
+   - use `mystery` for the final object that reveals the ending
+6. Set the GPIO pins so they match your wiring.
+   If you followed the wiring in this guide, the defaults are correct:
+   - `led_pin: 18`
+   - `haptic_pin: 23`
+7. Add the hub address to the node configuration so the node knows where the MQTT broker lives:
+   - `broker_host: <hub-ip-address>`
+   - `broker_port: 1883`
+8. Leave `audio.fragment_file` blank during first setup.
+   This is normal. The dashboard assigns the correct audio file later when you activate a story pack.
+9. Keep `language_default: en` unless your exhibition should start in another language.
+
+At the end of each node setup, you should know:
+- which physical object this Raspberry Pi belongs to
+- which `node_id` it uses
+- whether it is a `whisper` or `mystery` node
+- which hub IP it should contact
+
+### Configuration example for a whisper node
+
+```yaml
+node_id: object1
+role: whisper
+language_default: en
+broker_host: 192.168.1.25
+broker_port: 1883
+gpio:
+  led_pin: 18
+  haptic_pin: 23
+audio:
+  fragment_file: ""
+  volume: 0.7
+```
+
+### Configuration example for the mystery node
+
+```yaml
+node_id: mystery
+role: mystery
+language_default: en
+broker_host: 192.168.1.25
+broker_port: 1883
+gpio:
+  led_pin: 18
+  haptic_pin: 23
+audio:
+  fragment_file: ""
+  volume: 0.7
+```
 
 ## Enabling Services
 
-1. Copy `system/hub.service` to `/etc/systemd/system/echotrace-hub.service` on the hub and `system/node.service` to `/etc/systemd/system/echotrace-node.service` on nodes.
-2. Optionally create `/etc/default/echotrace` or `/etc/default/echotrace-node` to override environment variables (e.g., `ECHOTRACE_ADMIN_USER`, `ECHOTRACE_DIR`).
-3. Reload systemd: `sudo systemctl daemon-reload`.
-4. Enable services: `sudo systemctl enable --now echotrace-hub` (hub) and `sudo systemctl enable --now echotrace-node` (nodes).
-5. Check status with `sudo systemctl status echotrace-hub` and inspect logs via `journalctl -u echotrace-hub -f` during initial runs.
+1. On the hub, copy `system/hub.service` to `/etc/systemd/system/echotrace-hub.service`.
+2. On each node, copy `system/node.service` to `/etc/systemd/system/echotrace-node.service`.
+3. Optionally create `/etc/default/echotrace` or `/etc/default/echotrace-node` to override environment variables such as:
+   - `ECHOTRACE_ADMIN_USER`
+   - `ECHOTRACE_ADMIN_PASS`
+   - `ECHOTRACE_DIR`
+4. Reload systemd:
+   ```
+   sudo systemctl daemon-reload
+   ```
+5. Enable the hub service on the hub:
+   ```
+   sudo systemctl enable --now echotrace-hub
+   ```
+6. Enable the node service on each node:
+   ```
+   sudo systemctl enable --now echotrace-node
+   ```
+7. Check status with:
+   ```
+   sudo systemctl status echotrace-hub
+   sudo systemctl status echotrace-node
+   ```
+8. Inspect logs during first startup if needed:
+   ```
+   journalctl -u echotrace-hub -f
+   journalctl -u echotrace-node -f
+   ```
+
+At the end of this section:
+- the hub should reopen the dashboard automatically after a reboot
+- each node should reconnect automatically after a reboot
+- the dashboard should begin listing nodes once they check in
 
 ## Calibration Tips
 

@@ -1,40 +1,92 @@
 {% extends 'base.html' %}
+{% from '_node_actions.html' import node_action_controls %}
 {% block content %}
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Live Health</p>
+                <h2>Object Status</h2>
+                <p>
+                    This page translates object health into staff language first, then
+                    keeps technical detail available below each card when needed.
+                </p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li>Use staff status first. Open technical details only if the object behaves unexpectedly.</li>
+            <li>Reconnect is safe for staff. Advanced config remains hidden in Simple View.</li>
+        </ul>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Shortcuts</p>
+                <h2>Quick Actions</h2>
+                <p>Use this page when one object needs closer review than the opening checklist provides.</p>
+            </div>
+        </div>
+        <div class="action-grid">
+            <a class="button-link secondary" href="{{ url_for('daily_start') }}">Return to Open Exhibit</a>
+            <a class="button-link secondary" href="{{ url_for('problems_page') }}">Review Problems</a>
+        </div>
+    </div>
+</section>
+
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Install Check</p>
+                <h2>Commissioning Check</h2>
+                <p>
+                    This summary helps first-time setup. It shows how many nodes the hub
+                    can see and whether they match the active story.
+                </p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li><strong>Nodes discovered:</strong> {{ commissioning_status.discovered_count }}</li>
+            <li><strong>Objects expected by the story:</strong> {{ commissioning_status.expected_count }}</li>
+            {% if commissioning_status.missing_expected_nodes %}
+                <li><strong>Still missing:</strong> {{ commissioning_status.missing_expected_nodes | join(', ') }}</li>
+            {% else %}
+                <li><strong>Still missing:</strong> None</li>
+            {% endif %}
+            {% if commissioning_status.unexpected_nodes %}
+                <li><strong>Unexpected nodes seen:</strong> {{ commissioning_status.unexpected_nodes | join(', ') }}</li>
+            {% else %}
+                <li><strong>Unexpected nodes seen:</strong> None</li>
+            {% endif %}
+        </ul>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Use This Page When</p>
+                <h2>When to Use This Page</h2>
+                <p>Come here when the opening checklist is not enough and you need to confirm a device is really online.</p>
+            </div>
+        </div>
+        <div class="action-grid compact">
+            <a class="button-link secondary" href="{{ url_for('commission') }}">Open Hardware Status</a>
+            <a class="button-link secondary" href="{{ url_for('setup') }}">Finish Exhibit Setup</a>
+        </div>
+    </div>
+</section>
+
 <section>
-    <h2>Object Status</h2>
-    <p>Use this page when you need to understand how a specific exhibit object is behaving. The top status is written for staff. Technical details are available below it.</p>
     {% if nodes %}
         <div class="card-grid">
             {% for node_id, meta in nodes.items() %}
                 {% set health_row = health.get(node_id, {}) %}
                 {% set object_status = object_statuses.get(node_id, {}) %}
                 <article class="node-card">
+                    <p class="metric-label">{{ meta.role }} object</p>
                     <h3>{{ display_names.get(node_id, node_id) }}</h3>
-                    <p class="subtle">{{ meta.role }} object</p>
                     <p><strong>Staff status:</strong> {{ object_status.get('label', 'Unknown') }}</p>
                     <p>{{ object_status.get('detail', 'No recent status message is available.') }}</p>
-                    <div class="action-grid compact">
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="sound">
-                            <button type="submit">Test Sound</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="light">
-                            <button type="submit">Test Light</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="sensor">
-                            <button type="submit">Check Sensor</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="reconnect">
-                            <button type="submit" class="secondary">Reconnect</button>
-                        </form>
-                    </div>
+                    {{ node_action_controls(node_id, include_reconnect=True) }}
                     <details class="advanced-panel">
                         <summary>Technical details</summary>
                         <p><strong>Last heartbeat:</strong> {{ heartbeat_ages.get(node_id, '—') }}</p>
@@ -66,7 +118,14 @@
             {% endfor %}
         </div>
     {% else %}
-        <p><em>Select a story pack to list exhibit objects.</em></p>
+        <ul class="status-list">
+            <li>No active story is selected yet, so the exhibit object list is still empty.</li>
+            <li>If the Raspberry Pis are powered on but nothing appears here, open Hardware Status first.</li>
+        </ul>
+        <div class="action-grid compact">
+            <a class="button-link secondary" href="{{ url_for('commission') }}">Open Hardware Status</a>
+            <a class="button-link secondary" href="{{ url_for('content') }}">Change Story</a>
+        </div>
     {% endif %}
 </section>
 {% endblock %}

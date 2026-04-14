@@ -1,7 +1,7 @@
 # Accessibility configuration defaults for the EchoTrace hub.
 global:
   captions: false
-  high_contrast: true
+  high_contrast: false
   sensory_friendly: false
   safety_limiter: true
   mobility_buffer_ms: 800

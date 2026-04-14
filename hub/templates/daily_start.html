@@ -1,70 +1,120 @@
 {% extends 'base.html' %}
+{% from '_node_actions.html' import node_action_controls %}
 {% block content %}
 <section class="daily-shell">
     <div class="section-heading">
         <div>
+            <p class="section-kicker">Opening Checklist</p>
             <h2>Open Exhibit</h2>
-            <p>Use this page each morning. Every status on this page is based on the current system state or a successful action sent to an object today.</p>
+            <p>
+                This page is the morning operating checklist. Every completion badge
+                on this page is tied to live system state or a successful action sent
+                today.
+            </p>
         </div>
         <div class="check-badge-group">
-            <span class="step-badge {% if daily_progress.readiness_complete %}complete{% else %}pending{% endif %}">{{ 'Ready' if daily_progress.readiness_complete else 'Review needed' }}</span>
-            <span class="step-badge {% if daily_progress.preset_complete %}complete{% else %}pending{% endif %}">{{ 'Preset chosen' if daily_progress.preset_complete else 'Choose preset' }}</span>
-            <span class="step-badge {% if daily_progress.nodes_complete %}complete{% else %}pending{% endif %}">{{ 'Objects checked' if daily_progress.nodes_complete else 'Check objects' }}</span>
+            <span class="step-badge {% if daily_progress.readiness_complete %}complete{% else %}pending{% endif %}">
+                {{ 'No blockers' if daily_progress.readiness_complete else 'Needs review' }}
+            </span>
+            <span class="step-badge {% if daily_progress.preset_complete %}complete{% else %}pending{% endif %}">
+                {{ daily_progress.preset_label if daily_progress.preset_complete else 'Choose preset' }}
+            </span>
+            <span class="step-badge {% if daily_progress.nodes_complete %}complete{% else %}pending{% endif %}">
+                {{ 'Objects checked' if daily_progress.nodes_complete else 'Check objects' }}
+            </span>
+        </div>
+    </div>
+    <div class="stats-grid">
+        <div class="mini-stat">
+            <p class="metric-label">Overall readiness</p>
+            <p class="metric-value">{{ 'Ready' if daily_progress.readiness_complete else 'Review' }}</p>
+        </div>
+        <div class="mini-stat">
+            <p class="metric-label">Today’s preset</p>
+            <p class="metric-value">{{ daily_progress.preset_label or 'Not set' }}</p>
+        </div>
+        <div class="mini-stat">
+            <p class="metric-label">Objects checked</p>
+            <p class="metric-value">
+                {{
+                    daily_progress.node_statuses.values()
+                    | selectattr('tested_today')
+                    | list
+                    | length
+                }}/{{ daily_progress.node_statuses | length }}
+            </p>
         </div>
     </div>
 </section>
 
-<section>
-    <div class="section-heading">
-        <div>
-            <h2>1. Review Overall Readiness</h2>
-            <p><strong>{{ status_banner.headline }}</strong> {{ status_banner.detail }}</p>
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Step 1</p>
+                <h2>1. Review Overall Readiness</h2>
+                <p>Confirm there are no critical blockers before continuing with visitor-facing checks.</p>
+            </div>
+            <span class="step-badge {% if daily_progress.readiness_complete %}complete{% else %}pending{% endif %}">
+                {{ 'Ready to proceed' if daily_progress.readiness_complete else 'Resolve blockers' }}
+            </span>
         </div>
-        <span class="step-badge {% if daily_progress.readiness_complete %}complete{% else %}pending{% endif %}">
-            {{ 'No critical blockers' if daily_progress.readiness_complete else 'Critical issues remain' }}
-        </span>
-    </div>
-    {% if problems %}
-        <a class="button-link secondary" href="{{ url_for('problems_page') }}">Open Fix an Issue</a>
-    {% endif %}
-</section>
-
-<section>
-    <div class="section-heading">
-        <div>
-            <h2>2. Choose the Day’s Operating Mode</h2>
-            <p>Pick the operating mode that matches today’s audience and schedule.</p>
-        </div>
-        <span class="step-badge {% if daily_progress.preset_complete %}complete{% else %}pending{% endif %}">
-            {% if daily_progress.preset_complete %}
-                {{ daily_progress.preset_label or 'Preset chosen' }}
-            {% else %}
-                No preset confirmed today
+        <ul class="status-list">
+            <li>
+                <strong>{{ status_banner.headline }}</strong><br>
+                {{ status_banner.detail }}
+            </li>
+            {% if problems %}
+                {% for problem in problems[:3] %}
+                    <li>
+                        <strong>{{ problem.title }}</strong><br>
+                        {{ problem.action }}
+                    </li>
+                {% endfor %}
             {% endif %}
-        </span>
+        </ul>
+        {% if problems %}
+            <div class="action-grid compact">
+                <a class="button-link secondary" href="{{ url_for('problems_page') }}">Open Fix an Issue</a>
+            </div>
+        {% endif %}
     </div>
-    <div class="action-grid">
-        {% for key, preset in operation_presets.items() %}
-            <form data-api="{{ url_for('api_operation_preset') }}" data-refresh="true" data-success-message="{{ preset.label }} preset applied.">
-                <input type="hidden" name="preset_key" value="{{ key }}">
-                <button type="submit">{{ preset.label }}</button>
-            </form>
-        {% endfor %}
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Step 2</p>
+                <h2>2. Choose the Day’s Operating Mode</h2>
+                <p>Select the audience mode that best fits today’s visitors and schedule.</p>
+            </div>
+        </div>
+        <div class="card-grid">
+            {% for key, preset in operation_presets.items() %}
+                <article class="node-card">
+                    <p class="metric-label">Operating preset</p>
+                    <h3>{{ preset.label }}</h3>
+                    <form
+                        data-api="{{ url_for('api_operation_preset') }}"
+                        data-refresh="true"
+                        data-success-message="{{ preset.label }} preset applied."
+                    >
+                        <input type="hidden" name="preset_key" value="{{ key }}">
+                        <button type="submit" class="secondary">Apply {{ preset.label }}</button>
+                    </form>
+                </article>
+            {% endfor %}
+        </div>
     </div>
 </section>
 
 <section>
     <div class="section-heading">
         <div>
+            <p class="section-kicker">Step 3</p>
             <h2>3. Confirm Each Object Responds</h2>
-            <p>An object counts as checked only after a successful test reaches it today.</p>
+            <p>An object is only marked complete after a successful test reaches it today.</p>
         </div>
         <span class="step-badge {% if daily_progress.nodes_complete %}complete{% else %}pending{% endif %}">
-            {% if daily_progress.nodes_complete %}
-                All objects checked today
-            {% else %}
-                Some objects still need a successful check
-            {% endif %}
+            {{ 'All objects checked' if daily_progress.nodes_complete else 'Some objects still need checks' }}
         </span>
     </div>
     {% if nodes %}
@@ -72,6 +122,7 @@
             {% for node_id, meta in nodes.items() %}
                 {% set node_progress = daily_progress.node_statuses.get(node_id, {}) %}
                 <article class="node-card">
+                    <p class="metric-label">{{ meta.role }} object</p>
                     <h3>{{ display_names.get(node_id, meta.label) }}</h3>
                     <p class="subtle">
                         {% if node_progress.get('tested_today') %}
@@ -80,42 +131,43 @@
                             Not yet checked today
                         {% endif %}
                     </p>
-                    <div class="action-grid compact">
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Sound test sent.">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="sound">
-                            <button type="submit">Test Sound</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Light test sent.">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="light">
-                            <button type="submit">Test Light</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Sensor check sent.">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="sensor">
-                            <button type="submit">Check Sensor</button>
-                        </form>
-                        <form data-api="{{ url_for('api_node_test') }}" data-refresh="true" data-success-message="Reconnect request sent.">
-                            <input type="hidden" name="node_id" value="{{ node_id }}">
-                            <input type="hidden" name="action" value="reconnect">
-                            <button type="submit" class="secondary">Reconnect</button>
-                        </form>
-                    </div>
+                    {{ node_action_controls(node_id, include_reconnect=True) }}
                 </article>
             {% endfor %}
         </div>
     {% else %}
-        <p><em>No objects are available until a story pack is active.</em></p>
+        <ul class="status-list">
+            <li>No objects are available until a story pack is active.</li>
+        </ul>
     {% endif %}
 </section>
 
-<section>
-    <h2>4. Print and Visitor Support</h2>
-    <p>Use these only if printed materials changed or visitor support settings need to be adjusted today.</p>
-    <div class="action-grid">
-        <a class="button-link" href="{{ url_for('labels_page') }}">Open Print Cards</a>
-        <a class="button-link secondary" href="{{ url_for('accessibility_page') }}">Open Support Visitors</a>
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Step 4</p>
+                <h2>4. Print and Visitor Support</h2>
+                <p>Use these actions only when printed materials or visitor-facing support settings need attention.</p>
+            </div>
+        </div>
+        <div class="action-grid">
+            <a class="button-link" href="{{ url_for('labels_page') }}">Print Visitor Cards</a>
+            <a class="button-link secondary" href="{{ url_for('accessibility_page') }}">Support Visitors</a>
+        </div>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Completion</p>
+                <h2>When Today’s Opening Is Complete</h2>
+                <p>When all three badges at the top are complete, the opening routine is finished for the day.</p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li>Review blockers first, then set the audience mode, then confirm each object.</li>
+            <li>Use Fix an Issue if any object does not respond during the opening check.</li>
+        </ul>
     </div>
 </section>
 {% endblock %}

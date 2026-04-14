@@ -107,7 +107,20 @@ def test_overview_requires_auth(
     authed = testing_client.get("/", headers=_auth_header())
     assert authed.status_code == 200
     assert b"Start Here" in authed.data
-    assert b"Open Exhibit" in authed.data
+    assert b"Hardware Status" in authed.data
+
+
+def test_commission_page_renders_first_install_guidance(
+    client: tuple[FlaskClient, FakeHubController, Path]
+) -> None:
+    """Commission page should explain the first-install path in operator language."""
+    testing_client, _controller, _path = client
+    response = testing_client.get("/commission", headers=_auth_header())
+    assert response.status_code == 200
+    page = response.data.decode("utf-8")
+    assert "Hardware Status" in page
+    assert "Device Checklist" in page
+    assert "If No Nodes Appear Yet" in page
 
 
 def test_api_state_and_reset(
@@ -317,7 +330,19 @@ def test_content_page_shows_readiness_language(
     assert response.status_code == 200
     page = response.data.decode("utf-8")
     assert "Visitor-ready" in page
-    assert "Current Story Review" in page
+    assert "Active Story Review" in page
+
+
+def test_setup_page_directs_first_install_to_commissioning(
+    client: tuple[FlaskClient, FakeHubController, Path]
+) -> None:
+    """Setup page should distinguish exhibit setup from hardware commissioning."""
+    testing_client, _controller, _path = client
+    response = testing_client.get("/setup", headers=_auth_header())
+    assert response.status_code == 200
+    page = response.data.decode("utf-8")
+    assert "This page configures the exhibit experience" in page
+    assert "Hardware Status" in page
 
 
 def test_safe_pack_validation_handles_malformed_pack(tmp_path: Path) -> None:
@@ -348,6 +373,7 @@ def test_nodes_page_handles_missing_heartbeat(
     assert response.status_code == 200
     assert b"Object Status" in response.data
     assert b"Waiting for first check-in" in response.data
+    assert b"Commissioning Check" in response.data
 
 
 def test_daily_start_progress_is_server_backed(
@@ -397,7 +423,7 @@ def test_problems_page_offers_in_place_actions(
     assert response.status_code == 200
     page = response.data.decode("utf-8")
     assert "Try Reconnect" in page
-    assert "Open Daily Start" in page
+    assert "Open Exhibit" in page
 
 
 def test_node_display_names_and_undo_work(

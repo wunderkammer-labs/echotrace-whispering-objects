@@ -1,71 +1,163 @@
 {% extends 'base.html' %}
 {% block content %}
 <section class="hero-grid">
-    <div class="hero-card">
-        <h2>Start Here</h2>
-        <p class="metric-label">{{ recommended_task.title }}</p>
+    <article class="hero-card">
+        <p class="section-kicker">Start Here</p>
+        <h2>{{ recommended_task.title }}</h2>
         <p>{{ recommended_task.detail }}</p>
-        <a class="button-link" href="{{ recommended_task.href }}">{{ recommended_task.label }}</a>
-    </div>
-    <div class="hero-card">
-        <h2>Today’s Exhibit Snapshot</h2>
-        <p class="metric-label">Active story</p>
-        <p class="metric-value">
-            {% if active_pack %}
-                {{ active_pack.name }}
-            {% else %}
-                No story selected
-            {% endif %}
-        </p>
-        <p class="metric-label">Mystery reveal</p>
-        <p class="metric-value">{{ 'Unlocked' if state['unlocked'] else 'Locked' }}</p>
-        <p class="metric-label">Fragments heard today</p>
-        <p class="metric-value">{{ state['triggered'] | length }}</p>
-    </div>
+        <div class="action-grid compact">
+            <a class="button-link" href="{{ recommended_task.href }}">{{ recommended_task.label }}</a>
+            <a class="button-link secondary" href="{{ url_for('problems_page') }}">Fix an Issue</a>
+        </div>
+    </article>
+    <article class="hero-card">
+        <p class="section-kicker">Today’s Exhibit Snapshot</p>
+        <div class="stats-grid">
+            <div class="mini-stat">
+                <p class="metric-label">Active story</p>
+                <p class="metric-value">{{ active_pack.name if active_pack else 'None' }}</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Mystery reveal</p>
+                <p class="metric-value">{{ 'Unlocked' if state['unlocked'] else 'Locked' }}</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Fragments heard</p>
+                <p class="metric-value">{{ state['triggered'] | length }}</p>
+            </div>
+        </div>
+    </article>
 </section>
 
-<section>
-    <h2>What Needs Attention</h2>
-    {% if problems %}
-        <ul class="checklist">
-            {% for problem in problems[:4] %}
-                <li>{{ problem.title }} {{ problem.action }}</li>
-            {% endfor %}
+{% if not commissioning_status.ready_for_opening %}
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Installation State</p>
+                <h2>Before the Exhibit Can Open</h2>
+                <p>
+                    Use the device connection path when the system is still being brought
+                    online for the first time, after device replacement, or after a
+                    major reinstall.
+                </p>
+            </div>
+        </div>
+        <ul class="status-list">
+            <li><strong>Story packs visible:</strong> {{ 'Yes' if commissioning_status.has_story_packs else 'No' }}</li>
+            <li><strong>Nodes checking in:</strong> {{ commissioning_status.discovered_count }}</li>
+            <li><strong>Active story selected:</strong> {{ commissioning_status.active_pack_name if commissioning_status.active_pack_name else 'No' }}</li>
         </ul>
-        <a class="button-link" href="{{ url_for('problems_page') }}">Open Fix an Issue</a>
-    {% else %}
-        <p>No urgent action is needed right now.</p>
-        <a class="button-link" href="{{ url_for('daily_start') }}">Open Exhibit</a>
-    {% endif %}
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Next Step</p>
+                <h2>First-Install Path</h2>
+                <p>
+                    This path answers the common setup questions: are the nodes online,
+                    is a story available, and is the exhibit ready for staff setup?
+                </p>
+            </div>
+        </div>
+        <div class="action-grid compact">
+            <a class="button-link" href="{{ url_for('commission') }}">Open Hardware Status</a>
+            <a class="button-link secondary" href="{{ url_for('setup') }}">Open Set Up Exhibit</a>
+        </div>
+    </div>
 </section>
+{% endif %}
 
-<section>
-    <h2>Most Common Tasks</h2>
-    <div class="action-grid">
-        <a class="button-link" href="{{ url_for('daily_start') }}">Open Exhibit</a>
-        <a class="button-link" href="{{ url_for('setup') }}">Set Up Exhibit</a>
-        <a class="button-link" href="{{ url_for('content') }}">Change Story</a>
-        <a class="button-link secondary" href="{{ url_for('accessibility_page') }}">Support Visitors</a>
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Daily Work</p>
+                <h2>Common Tasks</h2>
+                <p>These are the actions staff reach for most often during setup, opening, and visitor support.</p>
+            </div>
+        </div>
+        <div class="action-grid">
+            <a class="button-link" href="{{ url_for('daily_start') }}">Open Exhibit</a>
+            <a class="button-link secondary" href="{{ url_for('setup') }}">Set Up Exhibit</a>
+            <a class="button-link secondary" href="{{ url_for('content') }}">Change Story</a>
+            <a class="button-link secondary" href="{{ url_for('accessibility_page') }}">Support Visitors</a>
+        </div>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Watch List</p>
+                <h2>Needs Attention</h2>
+                <p>The overview keeps urgent issues visible so staff do not need to inspect multiple pages first.</p>
+            </div>
+        </div>
+        {% if problems %}
+            <ul class="status-list">
+                {% for problem in problems[:4] %}
+                    <li>
+                        <strong>{{ problem.title }}</strong><br>
+                        {{ problem.action }}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <ul class="status-list">
+                <li><strong>No urgent issues detected.</strong><br>The exhibit can stay on the normal opening flow.</li>
+            </ul>
+        {% endif %}
     </div>
 </section>
 
-<section>
-    <h2>Advanced Review</h2>
-    {% if state['triggered'] %}
-        <p>Triggered fragments:</p>
-        <ul class="checklist">
-            {% for node in state['triggered'] %}
-                <li>{{ node_display_names.get(node, node) }}</li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p><em>No fragments have been triggered yet.</em></p>
-    {% endif %}
-    <div class="action-grid">
-        <form data-api="{{ url_for('api_reset_state') }}" data-refresh="true">
-            <button type="submit" class="secondary">Reset Exhibit State</button>
-        </form>
-        <a class="button-link secondary" href="{{ url_for('analytics') }}">Open Reports</a>
+<section class="split-panel">
+    <div class="panel-main">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Visitor Materials</p>
+                <h2>Story in Use</h2>
+                <p>Review the active story and decide whether visitor cards or support materials need to change.</p>
+            </div>
+        </div>
+        <div class="stats-grid">
+            <div class="mini-stat">
+                <p class="metric-label">Story pack</p>
+                <p class="metric-value">{{ active_pack.name if active_pack else 'None' }}</p>
+            </div>
+            <div class="mini-stat">
+                <p class="metric-label">Visitor cards</p>
+                <p>{{ 'Available' if active_pack else 'Waiting for story selection' }}</p>
+            </div>
+        </div>
+        <div class="action-grid compact">
+            <a class="button-link secondary" href="{{ url_for('labels_page') }}">Print Visitor Cards</a>
+            <a class="button-link secondary" href="{{ url_for('content') }}">Review Story Details</a>
+        </div>
+    </div>
+    <div class="panel-support">
+        <div class="section-heading">
+            <div>
+                <p class="section-kicker">Session Control</p>
+                <h2>Current Session</h2>
+                <p>Use this area when staff need to reset the installation or verify which fragments have already played.</p>
+            </div>
+        </div>
+        {% if state['triggered'] %}
+            <ul class="status-list">
+                {% for node in state['triggered'] %}
+                    <li>{{ node_display_names.get(node, node) }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <ul class="status-list">
+                <li>No fragments have been triggered in the current session.</li>
+            </ul>
+        {% endif %}
+        <div class="action-grid compact">
+            <form data-api="{{ url_for('api_reset_state') }}" data-refresh="true">
+                <button type="submit" class="secondary">Reset Exhibit State</button>
+            </form>
+            <a class="button-link secondary" href="{{ url_for('analytics') }}">Open Reports</a>
+        </div>
     </div>
 </section>
 {% endblock %}

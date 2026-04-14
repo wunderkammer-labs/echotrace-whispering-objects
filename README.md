@@ -1,4 +1,4 @@
-<img src="echotrace_logo.svg" alt="echotrace logo" width="220">
+<img src="echotrace_logo.svg" alt="echotrace logo" width="400">
 
 # echotrace: Whispering Objects
 
@@ -26,7 +26,7 @@ For museum staff, EchoTrace is designed to be easy to manage and adaptable to di
   Story content is stored in modular packs that contain YAML metadata, MP3 or WAV audio files, and multilingual HTML transcripts. Staff can replace or edit packs without programming. This makes the system reusable across exhibitions and adaptable to different stories and collections.
 
 - **Staff-friendly operations**  
-  The dashboard includes a setup wizard, a Daily Start page, one-click node tests, a plain-language problem list, operational presets, and printable transcript labels. These tools are designed for museum teams who are comfortable with exhibit operations but do not work in code.
+  The dashboard includes a Set Up Exhibit workflow, an Open Exhibit page, one-click node tests, a plain-language Fix an Issue view, operational presets, and Print Visitor Cards. Staff can work in a simplified day-to-day view, while technician tools remain available when needed. These tools are designed for museum teams who are comfortable with exhibit operations but do not work in code.
 
 - **Offline analytics**  
   All visitor interactions are logged locally as CSV files on the hub. The dashboard summarizes engagement data such as number of triggers and completion rate. No personal information is collected, keeping data management simple and ethical.
@@ -53,30 +53,27 @@ For museum staff, EchoTrace is designed to be easy to manage and adaptable to di
 The admin dashboard provides clear, real-time control over the installation. It is designed for museum staff and requires no programming knowledge. Each section offers visual feedback, simple controls, and instant updates through MQTT communication.
 
 1. **Overview**  
-   Displays the current content pack, node status, and progress toward the story’s conclusion. Administrators can pause or restart the experience and monitor system health.
+   Acts as a command center that recommends the next safe task, summarizes the active story, highlights current issues, and links directly into the main staff workflows. It also shows live narrative state and allows staff to reset the exhibit state for a fresh visitor run.
 
-2. **Setup Wizard**  
-   Guides staff through first-run tasks such as naming objects, selecting a content pack, checking node readiness, and confirming that the exhibit is ready to open. This is the recommended starting point after installation or exhibition changes.
+2. **Set Up Exhibit**  
+   Guides staff through first-run tasks such as selecting a story pack, naming objects for staff use, choosing a starting visitor mode, checking hardware, and confirming that the exhibit is ready to move into daily operation. This is the recommended starting point after installation or exhibition changes.
 
-3. **Daily Start**  
-   Provides a simple opening routine for front-line staff. It surfaces the current system status, highlights any problems that need attention, and offers one-click audio, light, sensor, and reconnect tests.
+3. **Open Exhibit**  
+   Provides a simple opening routine for front-line staff. It surfaces the current system status, highlights any blockers that need attention, confirms the day’s operating mode, and offers one-click sound, light, sensor, and reconnect tests.
 
-4. **Nodes**  
-   Lists all active nodes with their names, roles, and signal strength. Each entry includes quick tools to test LEDs, audio playback, and sensors. Administrators can push new settings or restart nodes remotely.
+4. **Object Status**  
+   Lists all active objects with their staff-facing names, roles, and current status. Each entry includes quick tools to test light, audio, and sensor behavior, along with reconnect controls. Technical details and advanced configuration tools are still available in Technician View.
 
-5. **Accessibility**  
-   Lets staff enable captions, adjust brightness or volume, and switch between accessibility presets. Settings can be applied globally or per node. All updates take effect immediately.
+5. **Support Visitors**  
+   Helps staff work from broad support changes to narrow ones. Presets can be applied first, whole-gallery settings can be adjusted when needed, and per-object support settings can be used only when one object needs special handling. All updates take effect immediately.
 
-6. **Content Management**  
-   Allows staff to activate new content packs, check language availability, and confirm that required audio and transcript files exist before going live. Metadata and audio links are displayed for verification before deployment.
+6. **Change Story**  
+   Allows staff to activate new content packs, review language availability, and confirm that required audio and transcript files exist before going live. Story packs are summarized in operational language so staff can tell whether a pack is ready for visitors or needs technician attention.
 
-7. **Calibration**  
-   Shows live sensor readings and threshold distances. Staff can adjust placement or sensitivity while viewing real-time feedback to ensure smooth performance in the gallery space.
+7. **Fix an Issue and Print Visitor Cards**  
+   The Fix an Issue view lists problems in plain language and offers direct next steps such as reconnecting an object or returning to the relevant workflow. The Print Visitor Cards view prepares object names, default languages, and transcript links in a print-friendly layout for visitor cards and local QR label workflows.
 
-8. **Problems and Labels**  
-   The Problems view lists issues in plain language with suggested actions. The Labels view prepares transcript links in a print-friendly layout so staff can update QR labels without manual URL work.
-
-9. **Analytics**  
+8. **Analytics**  
    Displays engagement statistics such as number of interactions, completion rates, and average time between triggers. CSV data can be exported for evaluation and reporting. The dashboard provides insights into how visitors are engaging without tracking individuals.
 
 ## Hardware Checklist
@@ -131,15 +128,31 @@ See `docs/hardware_setup.md` for detailed wiring, installation, and maintenance 
 
 This section is written for museum staff, exhibit developers, and project partners who may be comfortable following technical steps but do not work as software engineers. If you are setting up EchoTrace for the first time, use the checklist below in order.
 
+### If your Raspberry Pis are still in their boxes
+
+Start with **Deployment Steps (Production)** below, beginning at **1. Prepare the hub**.
+
+That section covers the full zero-to-working path:
+
+1. Flash Raspberry Pi OS onto each microSD card.
+2. Prepare the hub Raspberry Pi first.
+3. Prepare one node Raspberry Pi at a time.
+4. Enable the services so everything starts automatically after reboot.
+5. Return to this Quick Start section only after the hub dashboard opens in a browser and at least one node appears in the dashboard.
+
 ### Before you begin
 
 Make sure you have:
 
-1. One hub Raspberry Pi with the EchoTrace repository installed.
-2. One node Raspberry Pi for each object in the exhibit.
+1. One hub Raspberry Pi and five node Raspberry Pis.
+2. One microSD card for each Raspberry Pi.
 3. A local network that all devices can join.
-4. Power, speakers, sensors, and LEDs connected according to `docs/hardware_setup.md`.
+4. Power supplies, speakers, sensors, and LEDs connected according to `docs/hardware_setup.md`.
 5. A keyboard, mouse, and monitor for initial setup, or another computer on the same local network.
+6. Administrator username and password for the dashboard.
+7. A story pack placed in `content-packs/` on the hub.
+
+If you do not yet have Raspberry Pi OS installed, the repository copied onto the devices, and the services enabled, stop here and use **Deployment Steps (Production)** first.
 
 ### Quick Start for museum staff
 
@@ -149,39 +162,47 @@ Make sure you have:
 2. Power on each node Raspberry Pi.
    The nodes should begin checking in automatically after boot.
 
-3. Open the dashboard from a browser on the same network.
+3. Confirm that the hub and nodes are on the same local network.
+   If the nodes do not appear later in the dashboard, this is the first thing to check.
+
+4. Open the dashboard from a browser on the same network.
    Go to `http://<hub-ip>:8080/`.
    If you do not know the hub IP address, connect a monitor to the hub once and run:
    ```
    hostname -I
    ```
 
-4. Sign in with the administrator username and password configured for the exhibit.
+5. Sign in with the administrator username and password configured for the exhibit.
 
-5. Open **Setup Wizard** if this is a new installation or a newly changed exhibition.
+6. Open **Set Up Exhibit** if this is a new installation or a newly changed exhibition.
    Use it to:
+   - choose the active story pack
    - assign friendly names to objects
-   - choose the active content pack
-   - confirm that each node appears in the dashboard
-   - verify that the system is marked ready
+   - choose the starting visitor mode
+   - confirm that each object responds and the system is marked ready
 
-6. Open **Daily Start** before opening to visitors.
+   If you do not see a story pack to choose from, stop here and go to **Deployment Steps (Production)**, section **4. Load exhibit content**.
+
+7. Open **Open Exhibit** before opening to visitors.
    Use it to:
    - confirm the top status banner says the system is ready
    - run **Test Sound** and **Test Light** for each object
    - apply the correct operational preset for the day
-   - review any warnings shown in **Problems**
+   - open **Fix an Issue** if any blockers appear
 
-7. Open **Content** and confirm the correct pack is active.
+8. Open **Change Story** and confirm the correct pack is active.
    The dashboard now checks for missing audio or transcript files before activation. If something is missing, it will show a checklist instead of silently activating an incomplete pack.
 
-8. Open **Accessibility** and choose the correct preset.
+9. Open **Support Visitors** and choose the correct preset.
    For example, use a quieter preset for sensory-friendly hours or a higher-caption workflow for groups who need more text support.
 
-9. Open **Labels** and print transcript labels if the pack, language, or object names changed.
+10. Open **Print Visitor Cards** and print updated cards if the pack, language, or object names changed.
 
-10. Walk the gallery once before visitors arrive.
+11. Walk the gallery once before visitors arrive.
     Approach each object to confirm that sound, light, and sensor behavior feel appropriate in the actual space.
+
+12. If anything looks wrong, open **Fix an Issue** first.
+    Read the red issue cards before changing settings elsewhere in the dashboard.
 
 ### Quick Start for local development and testing
 
@@ -206,11 +227,11 @@ If you are preparing or testing EchoTrace on a workstation:
    - `make run-node` starts a mocked node service loop using test hardware mocks.
 
 4. Open the dashboard and test the staff workflow:
-   - Setup Wizard
-   - Daily Start
-   - Content
-   - Accessibility
-   - Labels
+   - Set Up Exhibit
+   - Open Exhibit
+   - Change Story
+   - Support Visitors
+   - Print Visitor Cards
 
 ## Deployment Steps (Production)
 
@@ -218,34 +239,102 @@ This section assumes EchoTrace is being installed in a museum, gallery, or class
 
 ### 1. Prepare the hub
 
-1. Install the repository on the hub Raspberry Pi, typically at `/opt/echotrace`.
-2. Create a Python virtual environment and install the application dependencies.
-3. Configure administrator credentials in the environment used by the hub service, including:
+This section is for the single Raspberry Pi that will host the dashboard and coordinate all nodes.
+
+1. Unbox the Raspberry Pi that will be the hub.
+2. Flash Raspberry Pi OS Lite onto its microSD card.
+3. Insert the card, connect the hub to power and the local network, and boot it.
+4. Connect a monitor and keyboard for first setup, or enable SSH if you manage Raspberry Pis remotely.
+5. Log into the hub and clone this repository into `/opt/echotrace`:
+   ```
+   cd /opt
+   sudo git clone https://github.com/wunderkammer-labs/echotrace-whispering-objects.git echotrace
+   sudo chown -R "$USER":"$USER" /opt/echotrace
+   ```
+6. Change into `/opt/echotrace`.
+7. Create a Python virtual environment and install dependencies:
+   ```
+   python3 -m venv .venv
+   . .venv/bin/activate
+   make install
+   ```
+8. Configure administrator credentials in the environment used by the hub service, including:
    - `ECHOTRACE_ADMIN_USER`
    - `ECHOTRACE_ADMIN_PASS`
-4. Confirm that Mosquitto or another supported local MQTT broker is installed and enabled on the hub.
-5. Confirm the hub is reachable on the museum’s local network.
+9. Install and enable Mosquitto on the hub:
+   ```
+   sudo apt install mosquitto mosquitto-clients
+   sudo systemctl enable --now mosquitto
+   ```
+10. Confirm the hub is reachable on the museum’s local network.
+11. Note the hub IP address by running:
+   ```
+   hostname -I
+   ```
+
+At the end of this section, you should have one working Raspberry Pi that can host the dashboard and MQTT broker.
 
 ### 2. Prepare each node
 
-1. Install the node runtime on each Raspberry Pi node, typically at `/opt/echotrace-node`.
-2. Connect and secure the speaker, distance sensor, LED, and optional haptic hardware.
-3. Confirm each node has the correct `node_id`, role, and hardware pin assignments in its local configuration.
-4. Place each node in its final exhibit location if possible, since room acoustics and reflective surfaces affect tuning.
+Prepare one node at a time. Do not try to configure all five at once.
+
+1. Unbox one Raspberry Pi node.
+2. Flash Raspberry Pi OS Lite onto its microSD card.
+3. Insert the card, connect the node to power and the same local network as the hub, and boot it.
+4. Connect the speaker, distance sensor, LED, and optional haptic hardware.
+5. Clone this repository onto the node, typically at `/opt/echotrace-node`:
+   ```
+   cd /opt
+   sudo git clone https://github.com/wunderkammer-labs/echotrace-whispering-objects.git echotrace-node
+   sudo chown -R "$USER":"$USER" /opt/echotrace-node
+   ```
+6. Change into `/opt/echotrace-node`.
+7. Create a Python virtual environment and install dependencies:
+   ```
+   python3 -m venv .venv
+   . .venv/bin/activate
+   make install
+   ```
+8. Review `pi_nodes/node_config.yaml` and set:
+   - the correct `node_id`
+   - the correct role for that device
+   - the correct GPIO pin assignments
+   - the hub hostname or IP for the MQTT broker
+9. Label the physical node so its case matches the `node_id`.
+10. Repeat this section for each remaining node.
+
+At the end of this section, each node should know its own identity and how to reach the hub.
 
 ### 3. Configure services to start automatically
 
 Copy the provided systemd unit files, adjust paths if needed, and enable them:
 
 ```
-sudo systemctl enable --now hub.service
-sudo systemctl enable --now node.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now echotrace-hub
+sudo systemctl enable --now echotrace-node
 ```
 
-After enabling services:
+For clarity:
+
+1. On the hub, copy `system/hub.service` to `/etc/systemd/system/echotrace-hub.service`.
+2. On each node, copy `system/node.service` to `/etc/systemd/system/echotrace-node.service`.
+3. Reload systemd with `sudo systemctl daemon-reload`.
+4. Enable the correct service on each device.
+
+After enabling services, confirm success:
 
 1. Reboot the hub once and confirm the dashboard returns automatically.
 2. Reboot a sample node once and confirm it reconnects and appears in the dashboard.
+3. If a device does not return automatically, run:
+   ```
+   sudo systemctl status echotrace-hub
+   ```
+   on the hub, or:
+   ```
+   sudo systemctl status echotrace-node
+   ```
+   on a node.
 
 ### 4. Load exhibit content
 
@@ -254,17 +343,19 @@ After enabling services:
    - `pack.yaml`
    - audio files for each assigned node
    - transcript HTML files for each assigned node and language
-3. Open **Content** in the dashboard and activate the pack.
+3. Open **Change Story** in the dashboard and activate the pack.
 4. Review the validation checklist shown by the dashboard.
    If files are missing, correct the pack before opening the exhibit.
 
+At the end of this section, you should be able to sign into the dashboard and see at least one valid story pack.
+
 ### 5. Complete the staff-facing setup
 
-1. Open **Setup Wizard** and assign friendly names that match gallery labels.
-2. Open **Daily Start** and run sound and light tests for every object.
-3. Open **Accessibility** and save the default preset for the exhibition.
-4. Open **Labels** and print transcript labels.
-5. Open **Problems** and make sure no red issues remain.
+1. Open **Set Up Exhibit** and assign friendly names that match gallery labels.
+2. Open **Open Exhibit** and run sound and light tests for every object.
+3. Open **Support Visitors** and save the default preset for the exhibition.
+4. Open **Print Visitor Cards** and print updated visitor cards or transcript links.
+5. Open **Fix an Issue** and make sure no red issues remain.
 
 At this point, the system should be ready for daily operation by museum staff.
 
@@ -273,7 +364,7 @@ At this point, the system should be ready for daily operation by museum staff.
 Use the following routine each day:
 
 1. Open the dashboard.
-2. Go to **Daily Start**.
+2. Go to **Open Exhibit**.
 3. Confirm the status banner is green or otherwise states that the system is ready.
 4. Run one-click sound and light tests.
 5. Apply the day’s operational preset if needed.
@@ -281,11 +372,11 @@ Use the following routine each day:
 
 If something goes wrong during the day:
 
-1. Open **Problems**.
+1. Open **Fix an Issue**.
 2. Read the red issue cards first.
 3. Follow the suggested action text.
 4. Use **Reconnect** for stale nodes.
-5. Use **Nodes** only if a more detailed view is needed.
+5. Use **Object Status** only if a more detailed view is needed.
 
 ### 7. Maintenance and support
 
@@ -293,7 +384,7 @@ For regular operations:
 
 1. Export analytics CSV files periodically for reporting.
 2. Back up content packs and staff settings after major exhibition changes.
-3. Reprint transcript labels whenever a pack or language assignment changes.
+3. Reprint visitor cards whenever a pack or language assignment changes.
 4. Review `docs/admin_playbook.md` and `docs/operator_cheat_sheet.md` for daily routines and troubleshooting guidance.
 
 ## License

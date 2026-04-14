@@ -1,3 +1,7 @@
+daily_start:
+  last_preset_date: ''
+  last_preset_label: ''
+  node_tests: {}
 last_preset_name: ''
 museum_staff_mode: true
 node_display_names: {}

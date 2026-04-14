@@ -1,0 +1,63 @@
+{% macro node_action_controls(node_id, primary_label='Test Sound', primary_action='sound', include_reconnect=True, refresh='true') %}
+    <div class="node-action-stack">
+        <form
+            data-api="{{ url_for('api_node_test') }}"
+            data-refresh="{{ refresh }}"
+            data-success-message="{{ primary_label }} sent."
+        >
+            <input type="hidden" name="node_id" value="{{ node_id }}">
+            <input type="hidden" name="action" value="{{ primary_action }}">
+            <button type="submit">{{ primary_label }}</button>
+        </form>
+
+        <details class="action-disclosure">
+            <summary>More actions</summary>
+            <div class="action-grid compact action-grid-muted">
+                {% if primary_action != 'sound' %}
+                    <form
+                        data-api="{{ url_for('api_node_test') }}"
+                        data-refresh="{{ refresh }}"
+                        data-success-message="Sound test sent."
+                    >
+                        <input type="hidden" name="node_id" value="{{ node_id }}">
+                        <input type="hidden" name="action" value="sound">
+                        <button type="submit" class="secondary">Test Sound</button>
+                    </form>
+                {% endif %}
+                {% if primary_action != 'light' %}
+                    <form
+                        data-api="{{ url_for('api_node_test') }}"
+                        data-refresh="{{ refresh }}"
+                        data-success-message="Light test sent."
+                    >
+                        <input type="hidden" name="node_id" value="{{ node_id }}">
+                        <input type="hidden" name="action" value="light">
+                        <button type="submit" class="secondary">Test Light</button>
+                    </form>
+                {% endif %}
+                {% if primary_action != 'sensor' %}
+                    <form
+                        data-api="{{ url_for('api_node_test') }}"
+                        data-refresh="{{ refresh }}"
+                        data-success-message="Sensor check sent."
+                    >
+                        <input type="hidden" name="node_id" value="{{ node_id }}">
+                        <input type="hidden" name="action" value="sensor">
+                        <button type="submit" class="secondary">Check Sensor</button>
+                    </form>
+                {% endif %}
+                {% if include_reconnect %}
+                    <form
+                        data-api="{{ url_for('api_node_test') }}"
+                        data-refresh="{{ refresh }}"
+                        data-success-message="Trying to reconnect."
+                    >
+                        <input type="hidden" name="node_id" value="{{ node_id }}">
+                        <input type="hidden" name="action" value="reconnect">
+                        <button type="submit" class="secondary">Reconnect</button>
+                    </form>
+                {% endif %}
+            </div>
+        </details>
+    </div>
+{% endmacro %}
