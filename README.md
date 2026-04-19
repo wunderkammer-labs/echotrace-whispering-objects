@@ -48,7 +48,7 @@ For museum staff, EchoTrace is designed to be easy to manage and adaptable to di
 5. **Reflection and return**  
    Visitors often return to earlier objects to re-listen. This reflection deepens understanding and highlights how movement and curiosity shape interpretation.
 
-   ## Learning Goals
+## Learning Goals
 
 - **Constructivist learning through storytelling**  
   Visitors build understanding by gathering and connecting story fragments. Each interaction becomes an act of investigation, mirroring how learning in museums often happens through exploration and curiosity.
