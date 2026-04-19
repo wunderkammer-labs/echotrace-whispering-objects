@@ -48,6 +48,23 @@ For museum staff, EchoTrace is designed to be easy to manage and adaptable to di
 5. **Reflection and return**  
    Visitors often return to earlier objects to re-listen. This reflection deepens understanding and highlights how movement and curiosity shape interpretation.
 
+   ## Learning Goals
+
+- **Constructivist learning through storytelling**  
+  Visitors build understanding by gathering and connecting story fragments. Each interaction becomes an act of investigation, mirroring how learning in museums often happens through exploration and curiosity.
+
+- **Embodied cognition and spatial learning**  
+  Movement is part of how visitors make sense of information. The sensors and light or sound feedback connect motion, perception, and interpretation, showing how physical engagement supports learning.
+
+- **Collaborative and social learning**  
+  No single visitor can hear the whole story alone. The design encourages sharing, discussion, and cooperative discovery, reflecting how people learn through social interaction.
+
+- **Inclusive and multimodal participation**  
+  Audio, light, vibration, and text work together so visitors with different sensory or linguistic backgrounds can participate. Accessibility features model Universal Design for Learning principles in a museum setting.
+
+- **Reflection and metacognition**  
+  The final mystery object encourages visitors to think about how they formed meaning. Revisiting earlier fragments promotes awareness of their own interpretive process.
+
 ## Admin Dashboard Highlights
 
 The admin dashboard provides clear, real-time control over the installation. It is designed for museum staff and requires no programming knowledge. Each section offers visual feedback, simple controls, and instant updates through MQTT communication.
@@ -156,23 +173,6 @@ See `docs/hardware_setup.md` for detailed wiring, installation, and maintenance 
 - Logged events include `heartbeat_received`, `fragment_triggered`, `narrative_unlocked`, `config_push_ok`, `config_push_timeout`, and `admin_action`.  
 - Dashboard summaries display counts, rates, and timing averages without collecting identifying data.  
 - Data remain local to the hub unless exported by an administrator for evaluation.
-
-## Educational and Learning Goals
-
-- **Constructivist learning through storytelling**  
-  Visitors build understanding by gathering and connecting story fragments. Each interaction becomes an act of investigation, mirroring how learning in museums often happens through exploration and curiosity.
-
-- **Embodied cognition and spatial learning**  
-  Movement is part of how visitors make sense of information. The sensors and light or sound feedback connect motion, perception, and interpretation, showing how physical engagement supports learning.
-
-- **Collaborative and social learning**  
-  No single visitor can hear the whole story alone. The design encourages sharing, discussion, and cooperative discovery, reflecting how people learn through social interaction.
-
-- **Inclusive and multimodal participation**  
-  Audio, light, vibration, and text work together so visitors with different sensory or linguistic backgrounds can participate. Accessibility features model Universal Design for Learning principles in a museum setting.
-
-- **Reflection and metacognition**  
-  The final mystery object encourages visitors to think about how they formed meaning. Revisiting earlier fragments promotes awareness of their own interpretive process.
 
 ## Quick Start
 
